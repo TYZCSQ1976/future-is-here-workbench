@@ -516,7 +516,8 @@ function createReferenceLibrary(options = {}) {
           resolve();
         }
       }, 10);
-      timer.unref?.();
+      // 这是调用方明确等待后台解析完成的保持句柄，不能 unref；否则
+      // 在干净的 CI 或刚启动的服务中，Node 可能在 Promise 完成前直接退出。
     });
   }
 
