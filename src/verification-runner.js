@@ -178,13 +178,25 @@ function sandboxedCommand(workspacePath, command, tempPath) {
 
 function sandboxAvailable() {
   if (process.platform !== 'darwin' || !fs.existsSync('/usr/bin/sandbox-exec')) return false;
+  const tempPath = fs.mkdtempSync(path.join(os.tmpdir(), 'future-workbench-sandbox-probe-'));
   try {
-    const probe = spawnSync('/usr/bin/sandbox-exec', ['-p', '(version 1) (allow default)', '/usr/bin/true'], {
-      stdio: 'ignore', timeout: 2_000
+    const profile = [
+      '(version 1)',
+      '(allow default)',
+      '(deny network*)',
+      `(deny file-read* (subpath "${escapeSandboxLiteral(os.homedir())}"))`,
+      `(allow file-read* (subpath "${escapeSandboxLiteral(tempPath)}"))`,
+      '(deny file-write*)',
+      `(allow file-write* (subpath "${escapeSandboxLiteral(tempPath)}"))`
+    ].join('\n');
+    const probe = spawnSync('/usr/bin/sandbox-exec', ['-p', profile, '/usr/bin/true'], {
+      cwd: tempPath, stdio: 'ignore', timeout: 2_000
     });
     return probe.status === 0;
   } catch (_) {
     return false;
+  } finally {
+    fs.rmSync(tempPath, { recursive: true, force: true });
   }
 }
 
