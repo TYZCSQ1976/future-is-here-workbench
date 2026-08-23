@@ -176,6 +176,18 @@ function sandboxedCommand(workspacePath, command, tempPath) {
   };
 }
 
+function sandboxAvailable() {
+  if (process.platform !== 'darwin' || !fs.existsSync('/usr/bin/sandbox-exec')) return false;
+  try {
+    const probe = spawnSync('/usr/bin/sandbox-exec', ['-p', '(version 1) (allow default)', '/usr/bin/true'], {
+      stdio: 'ignore', timeout: 2_000
+    });
+    return probe.status === 0;
+  } catch (_) {
+    return false;
+  }
+}
+
 function sanitizeOutput(value, maxChars) {
   const clean = String(value || '')
     .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
@@ -342,5 +354,6 @@ module.exports = {
   discoverVerificationPlan,
   runVerificationPlan,
   sanitizeOutput,
-  verificationEnvironment
+  verificationEnvironment,
+  sandboxAvailable
 };

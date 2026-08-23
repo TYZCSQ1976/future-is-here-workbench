@@ -6,8 +6,12 @@ const path = require('node:path');
 
 const {
   discoverVerificationPlan,
-  runVerificationPlan
+  runVerificationPlan,
+  sandboxAvailable
 } = require('../src/verification-runner');
+
+// GitHub 托管机或受限开发沙盒可能禁止嵌套 sandbox-exec；生产代码仍会安全拒绝执行。
+const sandboxTest = sandboxAvailable() ? test : test.skip;
 
 function createProject(scripts = null) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'future-workbench-verification-'));
@@ -54,7 +58,7 @@ test('自动发现 Python、Rust 与 Go 的受限标准测试入口', () => {
   assert.deepEqual(plan.commands.map((item) => item.displayCommand), ['python3 -m pytest', 'cargo test --locked', 'go test ./...']);
 });
 
-test('确定性检查保存真实退出码、耗时和脱敏后的输出摘要', async () => {
+sandboxTest('确定性检查保存真实退出码、耗时和脱敏后的输出摘要', async () => {
   const root = createProject({
     check: 'node -e "console.log(\'OPENAI_API_KEY=secret-value\'); console.log(\'检查完成\')"',
     test: 'node -e "process.exit(0)"'
@@ -70,7 +74,7 @@ test('确定性检查保存真实退出码、耗时和脱敏后的输出摘要',
   assert.doesNotMatch(result.commands[0].output, /secret-value/);
 });
 
-test('任何检查非零退出时整体失败，并保留其他检查证据', async () => {
+sandboxTest('任何检查非零退出时整体失败，并保留其他检查证据', async () => {
   const root = createProject({
     check: 'node -e "console.error(\'语法检查失败\'); process.exit(2)"',
     test: 'node -e "console.log(\'测试仍执行\')"'
@@ -83,7 +87,7 @@ test('任何检查非零退出时整体失败，并保留其他检查证据', as
   assert.equal(result.commands[1].exitCode, 0);
 });
 
-test('检查超时会终止并标记失败', async () => {
+sandboxTest('检查超时会终止并标记失败', async () => {
   const root = createProject({ check: 'node -e "setTimeout(() => {}, 5000)"' });
   const result = await runVerificationPlan(root, discoverVerificationPlan(root), { timeoutMs: 100 });
 
@@ -121,7 +125,7 @@ test('AI 不改命令但偷换测试文件时拒绝执行', async () => {
   assert.equal(result.commands.length, 0);
 });
 
-test('验证脚本在系统沙箱内不能读取用户目录或联网', async () => {
+sandboxTest('验证脚本在系统沙箱内不能读取用户目录或联网', async () => {
   const root = createProject({
     check: `node -e "require('fs').readFileSync('${path.join(os.homedir(), '.ssh', 'id_rsa')}')"`
   });
