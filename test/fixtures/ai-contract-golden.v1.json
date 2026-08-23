@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "proposal-minimum-valid",
+      "type": "proposal",
+      "accepted": true,
+      "artifact": {
+        "schemaVersion": 1,
+        "artifactType": "proposal",
+        "summary": "有证据的最小方案",
+        "facts": [{ "statement": "目标来自用户", "source": "user", "evidence": "原始请求" }],
+        "assumptions": [],
+        "steps": [{ "id": "S1", "action": "实现功能", "owner": "system", "deliverable": "可运行代码", "verification": "运行测试" }],
+        "risks": [],
+        "acceptanceCriteria": ["测试通过"],
+        "openQuestions": []
+      }
+    },
+    {
+      "id": "proposal-without-verification-rejected",
+      "type": "proposal",
+      "accepted": false,
+      "artifact": {
+        "schemaVersion": 1,
+        "artifactType": "proposal",
+        "summary": "没有执行步骤",
+        "facts": [],
+        "assumptions": [],
+        "steps": [],
+        "risks": [],
+        "acceptanceCriteria": [],
+        "openQuestions": []
+      }
+    },
+    {
+      "id": "verification-unknown-is-not-pass",
+      "type": "verification",
+      "accepted": false,
+      "artifact": {
+        "schemaVersion": 1,
+        "artifactType": "verification",
+        "verdict": "pass",
+        "summary": "只有口头结论",
+        "checks": [{ "criterion": "真实测试", "result": "unknown", "evidence": "未运行" }],
+        "remainingRisks": [],
+        "requiredFixes": []
+      }
+    }
+  ]
+}

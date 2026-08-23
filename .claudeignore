@@ -1,0 +1,16 @@
+# 第三方依赖包 —— 最大头，419MB，3600+文件，必须跳过
+node_modules/
+
+# 对话记录和数据库（不需要 AI 扫描）
+sessions/
+.workbench/
+
+# macOS 系统文件
+.DS_Store
+
+# 日志文件
+*.log
+
+# 大型构建产物（如果有）
+dist/
+build/

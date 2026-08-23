@@ -1,0 +1,24 @@
+# 对话记录（包含私密对话内容，不提交）
+sessions/
+
+# 可恢复运行数据库、隔离工作区和本地 Context Tree 数据
+.workbench/
+
+# macOS 系统文件
+.DS_Store
+
+# Node.js
+node_modules/
+*.log
+
+# 本地配置与凭据（只提交 .env.example）
+.env
+.env.*
+!.env.example
+
+# Claude Code 的个人项目配置，不进入公开仓库
+.claude/
+
+# 发布检查产生的本地压缩包
+*.tgz
+npm-debug.log*

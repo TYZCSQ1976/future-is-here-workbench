@@ -1,0 +1,36 @@
+{
+  "name": "future-is-here-workbench",
+  "version": "0.6.0",
+  "private": true,
+  "description": "本地 AI 团队工作台",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "doctor": "node scripts/doctor.js",
+    "check": "node --check server.js && for file in src/*.js; do node --check \"$file\"; done",
+    "test": "node --test",
+    "package:check": "npm pack --dry-run --ignore-scripts --cache .workbench/npm-cache",
+    "release:check": "node scripts/release-check.js",
+    "security:scan": "npx --yes --package=@openai/codex-security@0.1.8 codex-security scan . --path AGENTS.md --path SECURITY.md --path server.js --path src --path public/index.html --path README.md --path docs --path package.json --path test"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "files": [
+    "server.js",
+    "src/",
+    "public/",
+    "docs/",
+    "README.md",
+    "SECURITY.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    ".env.example",
+    "开始.command",
+    "停止.command"
+  ],
+  "devDependencies": {
+    "@openai/codex-security": "^0.1.8"
+  }
+}

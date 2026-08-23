@@ -1,0 +1,2871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>未来已来 · AI 工作台</title>
+  <script id="file-entry-redirect">
+    // 用户双击本文件时，页面没有后端能力；自动进入真正运行中的本地工作台。
+    if (window.location.protocol === 'file:') {
+      window.location.replace('http://127.0.0.1:3456/');
+    }
+  </script>
+  <style>
+    :root {
+      --bg-base: #E8ECF4;
+      --glass: rgba(255,255,255,0.55);
+      --glass-strong: rgba(255,255,255,0.72);
+      --border: rgba(99,102,241,0.14);
+      --border-hi: rgba(99,102,241,0.30);
+      --text-1: #1E1B2E;
+      --text-2: #4A4760;
+      --text-3: #908CA0;
+      --indigo: #6366F1;
+      --cyan: #06B6D4;
+      --pink: #EC4899;
+      --green: #10B981;
+      --red: #EF4444;
+      --holographic: linear-gradient(135deg, #6366F1, #A855F7, #06B6D4, #EC4899);
+      --holographic-soft: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.08), rgba(6,182,212,0.08), rgba(236,72,153,0.08));
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, "PingFang SC", "SF Pro SC", "Helvetica Neue", sans-serif;
+      background: var(--bg-base); color: var(--text-1);
+      height: 100vh; overflow: hidden;
+      display: flex; flex-direction: row;
+    }
+    .bg-grid {
+      position: fixed; inset: 0; z-index: -2;
+      background-image:
+        linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 100%);
+    }
+    .bg-blob {
+      position: fixed; border-radius: 50%; filter: blur(100px);
+      opacity: 0.28; z-index: -1; animation: float 20s ease-in-out infinite;
+    }
+    .bg-blob.b1 { width:520px; height:520px; background: var(--indigo); top:-120px; right:5%; }
+    .bg-blob.b2 { width:440px; height:440px; background: var(--cyan); bottom:-100px; left:15%; animation-delay:-7s; }
+    .bg-blob.b3 { width:380px; height:380px; background: var(--pink); top:30%; left:45%; animation-delay:-14s; opacity:0.20; }
+    @keyframes float { 0%,100%{transform:translate(0,0) scale(1);} 33%{transform:translate(40px,-50px) scale(1.05);} 66%{transform:translate(-30px,40px) scale(0.95);} }
+
+    /* ===== 侧边栏 ===== */
+    .sidebar { 
+      width: var(--sidebar-width, 260px); background: var(--glass-strong);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      z-index: 10; flex-shrink: 0;
+      transition: margin-left 0.3s ease;
+    }
+    .sidebar.collapsed { margin-left: calc(-1 * var(--sidebar-width, 260px)); }
+    .sidebar-header { padding: 16px 14px 12px; border-bottom: 1px solid var(--border); }
+    .sidebar-title { font-size: 11px; font-weight: 700; color: var(--text-3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+    .new-session-btn {
+      width: 100%; padding: 10px; border-radius: 12px;
+      border: 1.5px dashed var(--border-hi);
+      background: rgba(99,102,241,0.05); color: var(--indigo);
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.25s ease;
+    }
+    .new-session-btn:hover { background: rgba(99,102,241,0.12); border-color: var(--indigo); border-style: solid; transform: translateY(-1px); }
+    .session-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .session-list::-webkit-scrollbar { width: 4px; }
+    .session-list::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+    .session-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px;
+      cursor: pointer; transition: all 0.2s ease;
+      margin-bottom: 3px; position: relative;
+    }
+    .session-item:hover { background: rgba(99,102,241,0.06); }
+    .session-item.active {
+      background: var(--holographic); background-size: 300% 300%;
+      animation: holoShift 6s ease infinite;
+      box-shadow: 0 4px 14px rgba(139,92,246,0.25);
+    }
+    .session-item.active .session-name { color: #fff; font-weight: 700; }
+    .session-item.active .session-meta { color: rgba(255,255,255,0.75); }
+    @keyframes holoShift { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+    .session-icon { font-size: 18px; flex-shrink: 0; position: relative; }
+    .session-info { flex: 1; min-width: 0; }
+    .session-name { font-size: 13px; font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .session-meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .session-delete { opacity: 0; background: none; border: none; color: #fff; cursor: pointer; font-size: 12px; padding: 4px 6px; border-radius: 6px; transition: all 0.2s; flex-shrink: 0; }
+    .session-item:hover .session-delete { opacity: 0.5; }
+    .session-item:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }
+    .session-item:focus-visible .session-delete, .session-delete:focus-visible { opacity: 1; }
+    .session-delete:hover { opacity: 1 !important; background: rgba(239,68,68,0.2); }
+    /* 后台运行指示器 */
+    .session-item.busy .session-icon::after {
+      content: ''; position: absolute; top: -2px; right: -6px;
+      width: 9px; height: 9px; background: var(--green);
+      border-radius: 50%; border: 2px solid rgba(255,255,255,0.85);
+      animation: pulse 1.5s ease infinite;
+    }
+    .sidebar-footer { padding: 10px 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-3); text-align: center; }
+
+    /* ===== 轨迹侧栏（各智能体真实的工作过程） ===== */
+    .trace-sidebar {
+      width: var(--trace-width, 390px); background: rgba(248,250,255,0.92);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      z-index: 10; flex-shrink: 0;
+      transition: margin-right 0.3s ease;
+    }
+    .trace-sidebar.collapsed { margin-right: calc(-1 * var(--trace-width, 390px)); }
+    .trace-header { padding: 15px 14px 12px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.5); }
+    .trace-title-row { display: flex; align-items: center; gap: 8px; }
+    .trace-title { flex: 1; font-size: 12px; font-weight: 800; color: var(--text-1); letter-spacing: .5px; }
+    .trace-live { display: inline-flex; align-items: center; gap: 5px; color: var(--green); font-size: 10px; font-weight: 700; }
+    .trace-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .trace-live.idle { color: var(--text-3); }
+    .trace-close { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,.55); color: var(--text-2); cursor: pointer; }
+    .trace-close:hover, .trace-close:focus-visible { border-color: var(--indigo); color: var(--indigo); outline: none; }
+    .trace-note { font-size: 10.5px; color: var(--text-3); margin-top: 5px; line-height: 1.5; }
+    .trace-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 10px; }
+    .trace-summary-item { padding: 7px 8px; border: 1px solid var(--border); border-radius: 9px; background: rgba(255,255,255,.6); }
+    .trace-summary-value { display: block; font: 700 14px/1.2 ui-monospace, Menlo, monospace; color: var(--text-1); }
+    .trace-summary-label { display: block; margin-top: 2px; font-size: 9.5px; color: var(--text-3); }
+    .trace-toolbar { padding: 9px 10px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.34); }
+    .trace-search { width: 100%; height: 32px; border: 1px solid var(--border); border-radius: 9px; background: rgba(255,255,255,.72); padding: 0 10px; color: var(--text-1); font: inherit; font-size: 11.5px; }
+    .trace-search:focus { outline: 2px solid rgba(99,102,241,.22); border-color: var(--indigo); }
+    .trace-filters { display: flex; gap: 5px; margin-top: 7px; overflow-x: auto; scrollbar-width: none; }
+    .trace-filters::-webkit-scrollbar { display: none; }
+    .trace-filter { flex: 0 0 auto; padding: 4px 8px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text-3); font: inherit; font-size: 10.5px; cursor: pointer; }
+    .trace-filter.active { color: #fff; border-color: var(--indigo); background: var(--indigo); }
+    .trace-list { flex: 1; overflow-y: auto; padding: 10px 10px 24px; overscroll-behavior: contain; }
+    .trace-list::-webkit-scrollbar { width: 4px; }
+    .trace-list::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+    .trace-empty, .trace-error { padding: 28px 14px; text-align: center; color: var(--text-3); font-size: 11.5px; line-height: 1.7; }
+    .trace-error { color: var(--red); }
+    .trace-retry, .trace-load-more { margin-top: 9px; padding: 6px 11px; border: 1px solid var(--border-hi); border-radius: 8px; background: rgba(255,255,255,.7); color: var(--indigo); font: inherit; font-size: 11px; cursor: pointer; }
+    .trace-load-wrap { text-align: center; margin-bottom: 8px; }
+    .trace-load-more:disabled { color: var(--text-3); cursor: wait; }
+    .trace-run { border: 1px solid var(--border); border-radius: 13px; background: rgba(255,255,255,.62); margin-bottom: 10px; overflow: hidden; }
+    .trace-run-head { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-bottom: 1px solid var(--border); background: rgba(99,102,241,.035); }
+    .trace-run-state { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); box-shadow: 0 0 0 3px rgba(144,140,160,.12); }
+    .trace-run-state.running, .trace-run-state.queued { background: var(--cyan); animation: pulse 1.5s ease infinite; }
+    .trace-run-state.succeeded { background: var(--green); }
+    .trace-run-state.partial { background: #F59E0B; }
+    .trace-run-state.failed, .trace-run-state.dead_letter { background: var(--red); }
+    .trace-run-state.cancelled, .trace-run-state.interrupted { background: var(--text-3); }
+    .trace-run-info { flex: 1; min-width: 0; }
+    .trace-run-title { font-size: 11.5px; font-weight: 750; color: var(--text-1); }
+    .trace-run-meta { margin-top: 2px; font-size: 9.5px; color: var(--text-3); font-family: ui-monospace, Menlo, monospace; }
+    .trace-run-count { padding: 2px 6px; border-radius: 7px; background: rgba(99,102,241,.1); color: var(--indigo); font: 700 9.5px/1.4 ui-monospace, Menlo, monospace; }
+    .trace-invocation { border-bottom: 1px solid var(--border); }
+    .trace-invocation:last-child { border-bottom: 0; }
+    .trace-invocation > summary { display: flex; align-items: center; gap: 8px; padding: 9px 10px; list-style: none; cursor: pointer; }
+    .trace-invocation > summary::-webkit-details-marker { display: none; }
+    .trace-invocation > summary::after { content: '›'; color: var(--text-3); transform: rotate(0); transition: transform .15s; }
+    .trace-invocation[open] > summary::after { transform: rotate(90deg); }
+    .trace-agent-avatar { width: 25px; height: 25px; border-radius: 8px; flex: 0 0 auto; display: grid; place-items: center; color: #fff; font-size: 13px; }
+    .trace-agent-avatar.claude { background: linear-gradient(135deg,#8B5CF6,#EC4899); }
+    .trace-agent-avatar.codex { background: linear-gradient(135deg,#10B981,#06B6D4); }
+    .trace-agent-avatar.dsh { background: linear-gradient(135deg,#6366F1,#0EA5E9); }
+    .trace-invocation-info { flex: 1; min-width: 0; }
+    .trace-invocation-name { display: block; font-size: 11px; font-weight: 700; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .trace-invocation-latest { display: block; margin-top: 2px; font-size: 9.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .trace-visibility { flex: 0 0 auto; font-size: 9px; color: var(--text-3); }
+    .trace-timeline { position: relative; padding: 0 10px 9px 18px; }
+    .trace-timeline::before { content: ''; position: absolute; left: 13px; top: 1px; bottom: 12px; width: 1px; background: var(--border); }
+    .trace-entry { position: relative; margin: 0; padding: 0; }
+    .trace-entry > summary { display: grid; grid-template-columns: 14px minmax(0,1fr) auto; gap: 5px; align-items: start; padding: 6px 0; list-style: none; cursor: pointer; }
+    .trace-entry > summary::-webkit-details-marker { display: none; }
+    .trace-entry-dot { position: relative; z-index: 1; width: 7px; height: 7px; margin: 5px 0 0 0; border: 2px solid rgba(248,250,255,.95); border-radius: 50%; background: var(--text-3); box-shadow: 0 0 0 1px var(--border-hi); }
+    .trace-entry.status-started .trace-entry-dot, .trace-entry.status-running .trace-entry-dot { background: var(--cyan); animation: pulse 1.5s ease infinite; }
+    .trace-entry.status-succeeded .trace-entry-dot { background: var(--green); }
+    .trace-entry.status-failed .trace-entry-dot { background: var(--red); }
+    .trace-entry.status-cancelled .trace-entry-dot { background: var(--text-3); }
+    .trace-entry-main { min-width: 0; }
+    .trace-entry-title { display: block; font-size: 10.8px; font-weight: 650; color: var(--text-1); }
+    .trace-entry-summary { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 2px; color: var(--text-2); font-size: 10px; line-height: 1.45; word-break: break-word; }
+    .trace-entry-time { color: var(--text-3); font: 9px/1.5 ui-monospace, Menlo, monospace; white-space: nowrap; }
+    .trace-entry-detail { margin: 0 0 5px 19px; padding: 7px 8px; border-radius: 8px; background: rgba(30,27,46,.045); color: var(--text-2); }
+    .trace-entry-detail pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 9.5px/1.5 ui-monospace, Menlo, monospace; }
+    .trace-entry-flags { margin: 5px 0 0 19px; font-size: 9px; color: var(--text-3); }
+    .trace-no-match { padding: 18px 8px; text-align: center; color: var(--text-3); font-size: 11px; }
+
+    /* ===== 主区域 ===== */
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100vh; }
+    .resize-handle { flex: 0 0 auto; z-index: 4; touch-action: none; user-select: none; }
+    .resize-handle-sidebar { width: 7px; cursor: col-resize; background: transparent; border-left: 1px solid transparent; border-right: 1px solid transparent; transition: background .2s, border-color .2s; }
+    .resize-handle-sidebar:hover, .resize-handle-sidebar.dragging { background: rgba(99,102,241,.16); border-color: var(--border-hi); }
+    .resize-handle-input { height: 8px; margin: -4px 0 0; cursor: row-resize; background: transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent; transition: background .2s, border-color .2s; }
+    .resize-handle-input:hover, .resize-handle-input.dragging { background: rgba(99,102,241,.16); border-color: var(--border-hi); }
+    .header {
+      padding: 14px 24px; background: var(--glass);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 16px; flex-shrink: 0;
+    }
+    .sidebar-toggle {
+      width: 34px; height: 34px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--glass);
+      cursor: pointer; font-size: 16px; color: var(--text-2);
+      transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+    }
+    .sidebar-toggle:hover { background: rgba(99,102,241,0.1); }
+    .app-mode-group { display: flex; gap: 6px; }
+    .app-mode-btn {
+      padding: 8px 18px; border-radius: 10px;
+      border: 1px solid transparent; background: transparent;
+      color: var(--text-2); font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.25s ease;
+    }
+    .app-mode-btn:hover { color: var(--indigo); }
+    .app-mode-btn.active {
+      background: var(--holographic); background-size: 200% 200%;
+      color: #fff; animation: holoShift 5s ease infinite;
+      box-shadow: 0 2px 12px rgba(99,102,241,0.3);
+    }
+    .header-spacer { flex: 1; }
+    .status-indicator { font-size: 12px; color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s ease infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+    .chat-area { flex: 1; overflow-y: auto; padding: 24px; scroll-behavior: smooth; }
+    .chat-area::-webkit-scrollbar { width: 6px; }
+    .chat-area::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+
+    /* ===== 消息气泡 ===== */
+    .msg { margin-bottom: 16px; display: flex; animation: msgIn 0.4s ease; }
+    @keyframes msgIn { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+    .msg.user { justify-content: flex-end; }
+
+    /* 消息气泡 + 悬停工具条（复制 / 编辑） */
+    .msg-column { display: flex; flex-direction: column; min-width: 0; max-width: 72%; }
+    .msg.user .msg-column { align-items: flex-end; }
+    .msg-column .bubble { max-width: 100%; }
+    .msg-actions { display: flex; gap: 6px; opacity: 0; transition: opacity 0.15s ease; padding: 4px 2px 0; pointer-events: none; }
+    .msg:hover .msg-actions, .msg:focus-within .msg-actions,
+    .collab-msg:hover .msg-actions, .collab-msg:focus-within .msg-actions { opacity: 1; pointer-events: auto; }
+    .msg-action-btn { border: 1px solid var(--border); background: var(--glass-strong); color: var(--text-2); border-radius: 8px; font-size: 12px; padding: 3px 10px; cursor: pointer; }
+    .msg-action-btn:hover { color: var(--text-1); border-color: var(--indigo); }
+    .msg .avatar { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .msg.user .avatar { display: none; }
+    .msg.ai .avatar { background: var(--holographic); background-size: 200% 200%; animation: holoShift 5s ease infinite; }
+    .msg.ai.codex .avatar { background: linear-gradient(135deg, #10B981, #06B6D4); }
+    .msg.ai.dsh .avatar { background: linear-gradient(135deg, #6366F1, #0EA5E9); }
+    .bubble {
+      max-width: 72%; padding: 12px 16px; border-radius: 16px;
+      font-size: 14.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+    }
+    .msg.user .bubble {
+      background: var(--holographic); background-size: 200% 200%;
+      animation: holoShift 5s ease infinite; color: #fff;
+      border-bottom-right-radius: 4px; margin-left: 12px;
+    }
+    .msg.ai .bubble {
+      background: var(--glass-strong); backdrop-filter: blur(12px);
+      border: 1px solid var(--border); border-bottom-left-radius: 4px; margin-left: 12px;
+    }
+    .msg.ai .bubble { white-space: normal; }
+    .msg.ai .bubble p, .collab-text p { margin: 6px 0; }
+    .msg.ai .bubble h1, .collab-text h1 { font-size: 1.5em; font-weight: 700; margin: 12px 0 8px; }
+    .msg.ai .bubble h2, .collab-text h2 { font-size: 1.3em; font-weight: 700; margin: 10px 0 6px; }
+    .msg.ai .bubble h3, .collab-text h3 { font-size: 1.15em; font-weight: 600; margin: 10px 0 4px; }
+    .msg.ai .bubble h4, .collab-text h4 { font-size: 1em; font-weight: 600; margin: 8px 0 4px; }
+    .msg.ai .bubble ul, .collab-text ul { list-style: disc; padding-left: 20px; margin: 6px 0; }
+    .msg.ai .bubble ol, .collab-text ol { list-style: decimal; padding-left: 20px; margin: 6px 0; }
+    .msg.ai .bubble li, .collab-text li { margin: 3px 0; }
+    .msg.ai .bubble blockquote, .collab-text blockquote { border-left: 3px solid var(--indigo); padding-left: 12px; margin: 8px 0; color: var(--text-2); font-style: italic; }
+    .msg.ai .bubble table, .collab-text table { border-collapse: collapse; margin: 8px 0; width: 100%; font-size: 13px; }
+    .msg.ai .bubble th, .collab-text th { border: 1px solid var(--border); padding: 6px 10px; text-align: left; background: rgba(99,102,241,0.06); font-weight: 600; }
+    .msg.ai .bubble td, .collab-text td { border: 1px solid var(--border); padding: 6px 10px; }
+    .msg.ai .bubble a, .collab-text a { color: var(--indigo); text-decoration: none; }
+    .msg.ai .bubble a:hover, .collab-text a:hover { text-decoration: underline; }
+    .msg.ai .bubble hr, .collab-text hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+    .msg.ai .bubble strong, .collab-text strong { font-weight: 700; }
+    .msg.ai .bubble img, .collab-text img { max-width: 100%; border-radius: 8px; }
+    .msg.ai .bubble pre, .collab-text pre { background: rgba(30,27,46,0.06); border-radius: 8px; padding: 10px 12px; margin: 8px 0; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+    .msg.ai .bubble code, .collab-text code { font-family: "SF Mono", "Fira Code", monospace; font-size: 13px; }
+    .msg.ai .bubble p > code, .collab-text p > code { background: rgba(99,102,241,0.08); padding: 1px 5px; border-radius: 4px; }
+    .code-block-wrapper { position: relative; margin: 8px 0; }
+    .code-block-wrapper pre { margin: 0 !important; border-radius: 8px; }
+    .copy-code-btn {
+      position: absolute; top: 6px; right: 6px;
+      background: rgba(99,102,241,0.15); border: 1px solid var(--border);
+      border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--indigo);
+      cursor: pointer; opacity: 0; transition: all 0.2s; font-family: inherit;
+    }
+    .code-block-wrapper:hover .copy-code-btn { opacity: 1; }
+    .code-block-wrapper:focus-within .copy-code-btn { opacity: 1; }
+    .copy-code-btn:hover { background: rgba(99,102,241,0.25); }
+    .msg.system { justify-content: center; }
+    .msg.system .bubble { background: var(--holographic-soft); border: 1px solid var(--border); color: var(--text-2); font-size: 13px; text-align: center; max-width: 90%; border-radius: 12px; padding: 8px 16px; }
+
+    /* ===== 协作消息 ===== */
+    .collab-msg { margin-bottom: 16px; display: flex; gap: 12px; animation: msgIn 0.4s ease; }
+    .collab-avatar { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+    .collab-avatar.claude { background: var(--holographic); background-size: 200% 200%; animation: holoShift 5s ease infinite; }
+    .collab-avatar.codex { background: linear-gradient(135deg, #10B981, #06B6D4); }
+    .collab-avatar.dsh { background: linear-gradient(135deg, #6366F1, #0EA5E9); }
+    .collab-body { flex: 1; min-width: 0; }
+    .collab-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .collab-name { font-size: 13px; font-weight: 700; color: var(--text-1); }
+    .collab-role-tag { font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight: 600; }
+    .collab-role-tag.claude { background: rgba(99,102,241,0.12); color: var(--indigo); }
+    .collab-role-tag.codex { background: rgba(16,185,129,0.12); color: var(--green); }
+    .collab-text { background: var(--glass-strong); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px; font-size: 14px; line-height: 1.7; white-space: normal; word-break: break-word; }
+    .round-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; color: var(--text-3); font-size: 12px; }
+    .round-divider::before, .round-divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--border-hi), transparent); }
+    .goal-card { background: var(--holographic); background-size: 200% 200%; animation: holoShift 6s ease infinite; border-radius: 16px; padding: 16px 20px; margin-bottom: 20px; color: #fff; }
+    .goal-card-label { font-size: 11px; opacity: 0.8; letter-spacing: 2px; text-transform: uppercase; }
+    .goal-card-text { font-size: 16px; font-weight: 600; margin-top: 4px; }
+    .gate-card { background: var(--glass-strong); backdrop-filter: blur(20px); border: 2px solid var(--indigo); border-radius: 16px; padding: 20px; margin: 16px 0; }
+    .gate-title { font-size: 16px; font-weight: 700; color: var(--indigo); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .gate-plan { background: rgba(99,102,241,0.04); border-radius: 12px; padding: 14px; font-size: 14px; line-height: 1.7; white-space: normal; max-height: 300px; overflow-y: auto; margin-bottom: 16px; }
+    .gate-plan h1,.gate-plan h2,.gate-plan h3 { font-weight: 600; margin: 8px 0 4px; }
+    .gate-plan ul { list-style: disc; padding-left: 20px; margin: 6px 0; }
+    .gate-plan ol { list-style: decimal; padding-left: 20px; margin: 6px 0; }
+    .gate-plan li { margin: 3px 0; } .gate-plan p { margin: 6px 0; }
+    .gate-plan pre { background: rgba(30,27,46,0.06); border-radius: 8px; padding: 10px; overflow-x: auto; font-size: 13px; }
+    .gate-plan code { font-family: "SF Mono", monospace; font-size: 13px; }
+    .gate-plan strong { font-weight: 700; } .gate-plan a { color: var(--indigo); }
+    .gate-actions { display: flex; gap: 10px; }
+    .gate-btn { flex: 1; padding: 10px; border-radius: 10px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .gate-btn.confirm { background: var(--holographic); background-size: 200% 200%; animation: holoShift 5s ease infinite; color: #fff; }
+    .gate-btn.modify { background: rgba(99,102,241,0.1); color: var(--indigo); }
+    .gate-btn.cancel { background: rgba(239,68,68,0.08); color: var(--red); }
+    .gate-btn:hover { transform: translateY(-1px); }
+    .reliability-card { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+    .reliability-title { font-size: 13px; font-weight: 700; color: #047857; margin-bottom: 8px; }
+    .reliability-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .reliability-item { background: rgba(255,255,255,0.7); border-radius: 8px; padding: 8px; text-align: center; }
+    .reliability-value { font-size: 17px; font-weight: 800; color: var(--text-1); }
+    .reliability-label { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+    .complete-card { background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(6,182,212,0.1)); border: 1px solid rgba(16,185,129,0.3); border-radius: 16px; padding: 20px; margin: 16px 0; text-align: center; }
+    .complete-card .icon { font-size: 32px; }
+    .complete-card .text { font-size: 15px; font-weight: 600; color: var(--green); margin-top: 8px; }
+    .thinker { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding: 10px 16px; }
+    .thinker-avatar { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .thinker-avatar.claude { background: var(--holographic); background-size: 200% 200%; animation: holoShift 5s ease infinite; }
+    .thinker-avatar.codex { background: linear-gradient(135deg, #10B981, #06B6D4); }
+    .thinker-avatar.dsh { background: linear-gradient(135deg, #6366F1, #0EA5E9); }
+    .thinker-dots { display: flex; gap: 4px; }
+    .thinker-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--indigo); animation: bounce 1.2s ease infinite; }
+    .thinker-dots span:nth-child(2){animation-delay:0.15s;} .thinker-dots span:nth-child(3){animation-delay:0.3s;}
+    @keyframes bounce { 0%,60%,100%{transform:translateY(0);} 30%{transform:translateY(-8px);} }
+    .thinker-label { font-size: 13px; color: var(--text-3); }
+    .chat-progress { margin: 4px 0 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,0.48); display: grid; gap: 8px; }
+    .chat-progress-title { font-size: 12px; font-weight: 700; color: var(--text-2); }
+    .chat-progress-row { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 10px; font-size: 12px; }
+    .chat-progress-agent { font-weight: 700; color: var(--text-1); }
+    .chat-progress-status { color: var(--text-3); }
+    .chat-progress-row[data-status="running"] .chat-progress-status::before { content: '●'; color: var(--indigo); margin-right: 6px; animation: pulse 1.2s ease infinite; }
+    .chat-progress-row[data-status="done"] .chat-progress-status::before { content: '✓'; color: var(--green); margin-right: 6px; }
+    .chat-progress-row[data-status="failed"] .chat-progress-status::before { content: '!'; color: var(--red); margin-right: 6px; }
+
+    /* ===== 输入区域 ===== */
+    .input-area { height: var(--input-area-height, auto); min-height: 0; max-height: 72vh; padding: 0 24px 20px; background: var(--glass); backdrop-filter: blur(20px) saturate(160%); border-top: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .input-area.controls-collapsed { height: auto; min-height: 0; }
+    .controls-toggle { align-self: center; width: 30px; height: 13px; margin: -2px auto 3px; padding: 0 0 1px; border: 0; border-bottom: 1px solid rgba(99,102,241,.2); border-radius: 0 0 7px 7px; background: transparent; color: var(--text-3); font-size: 11px; line-height: 11px; cursor: pointer; transition: color .2s, background .2s, width .2s; }
+    .controls-toggle:hover, .controls-toggle:focus-visible { width: 36px; background: rgba(99,102,241,.06); color: var(--indigo); }
+    .controls-panel { flex: 0 1 auto; min-height: 0; overflow-y: auto; padding-top: 12px; }
+    .controls-panel.collapsed { display: none; }
+    .controls-panel::-webkit-scrollbar { width: 6px; }
+    .controls-panel::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+    .agent-selector { display: flex; gap: 6px; margin-bottom: 10px; align-items: center; }
+    .agent-label { font-size: 12px; color: var(--text-3); margin-right: 4px; }
+    .agent-btn { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-2); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .agent-btn:hover { border-color: var(--border-hi); }
+    .agent-btn:disabled { opacity: .42; cursor: not-allowed; filter: grayscale(.45); }
+    .agent-btn.active { border-color: transparent; color: #fff; }
+    .agent-btn.active[data-agent="claude"] { background: var(--holographic); background-size: 200% 200%; animation: holoShift 5s ease infinite; }
+    .agent-btn.active[data-agent="codex"] { background: linear-gradient(135deg, #10B981, #06B6D4); }
+    .agent-btn.active[data-agent="dsh"] { background: linear-gradient(135deg, #6366F1, #0EA5E9); }
+    .agent-btn.active[data-agent="all"] { background: linear-gradient(135deg, #6366F1, #10B981); }
+    .dual-strategy { display: none; align-items: center; gap: 6px; margin-left: 6px; font-size: 11px; color: var(--text-3); }
+    .dual-strategy.show { display: flex; }
+    .dual-strategy select { border: 1px solid var(--border); background: var(--glass-strong); color: var(--text-1); border-radius: 8px; padding: 6px 8px; font-size: 11px; }
+    .provider-health { margin: -4px 0 9px; font-size: 11px; color: var(--text-3); min-height: 16px; }
+    .provider-health .ready { color: #047857; }
+    .provider-health .down { color: var(--red); }
+    .collab-controls { display: none; gap: 10px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+    .collab-controls.show { display: flex; }
+    .collab-mode-group { display: flex; gap: 4px; }
+    .collab-mode-btn { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-2); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .collab-mode-btn:hover { border-color: var(--border-hi); }
+    .collab-mode-btn.active { background: rgba(99,102,241,0.1); border-color: var(--indigo); color: var(--indigo); }
+    .gate-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); cursor: pointer; }
+    .gate-toggle input { cursor: pointer; }
+    .workspace-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 12px; background: rgba(30,27,46,0.035); }
+    .workspace-path { min-width: 140px; max-width: 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font-size: 11px; }
+    .workspace-command { flex: 1; min-width: 100px; border: 1px solid var(--border); background: var(--glass-strong); border-radius: 8px; padding: 7px 9px; color: var(--text-1); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .workspace-run { border: 1px solid var(--border-hi); border-radius: 8px; padding: 7px 10px; background: rgba(16,185,129,.08); color: #047857; font-weight: 700; cursor: pointer; }
+    .context-toggle { border: 1px solid var(--border-hi); border-radius: 8px; padding: 7px 10px; background: rgba(99,102,241,.08); color: var(--indigo); font-weight: 700; cursor: pointer; }
+    .context-panel { display: none; margin: -2px 0 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,.6); }
+    .context-panel.show { display: block; }
+    .context-form { display: grid; grid-template-columns: 130px minmax(160px, .8fr) minmax(240px, 1.6fr) auto; gap: 7px; align-items: start; }
+    .context-form textarea { min-height: 62px; resize: vertical; }
+    .context-list { display: grid; gap: 7px; margin-top: 10px; max-height: 230px; overflow: auto; }
+    .context-node { border-top: 1px solid var(--border); padding-top: 8px; font-size: 11px; color: var(--text-2); }
+    .context-node-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .context-node-title { font-weight: 750; color: var(--text-1); }
+    .context-node-content { white-space: pre-wrap; margin-top: 4px; max-height: 70px; overflow: auto; }
+    .context-node-actions { display: flex; gap: 5px; }
+    .context-node-actions button { border: 1px solid var(--border); border-radius: 6px; background: var(--glass-strong); padding: 4px 7px; cursor: pointer; }
+    .plan-ready-card { margin: 16px auto; max-width: 760px; border: 1px solid rgba(16,185,129,.3); border-radius: 16px; padding: 18px; background: rgba(236,253,245,.72); }
+    .plan-ready-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+    .plan-ready-actions button { border: none; border-radius: 10px; padding: 9px 14px; background: linear-gradient(135deg,#10B981,#06B6D4); color: white; font-weight: 700; cursor: pointer; }
+    .team-builder { display: none; box-sizing: border-box; max-height: min(48vh, 420px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border); background: rgba(255,255,255,0.55); border-radius: 14px; padding: 12px; margin-bottom: 10px; }
+    .team-builder.show { display: block; }
+    .team-builder::-webkit-scrollbar { width: 6px; }
+    .team-builder::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+    .team-builder-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .team-builder-head > div:first-child { min-width: 0; }
+    .team-builder-title { font-size: 13px; font-weight: 750; color: var(--text-1); }
+    .team-builder-note { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .team-builder-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+    .team-planner-select { border: 1px solid var(--border); background: var(--glass-strong); border-radius: 8px; padding: 6px 8px; color: var(--text-1); font-size: 12px; }
+    .team-add-btn { border: 1px solid var(--border-hi); background: rgba(99,102,241,0.08); color: var(--indigo); border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .team-add-btn:disabled { cursor: not-allowed; opacity: 0.55; }
+    .team-suggest-status { min-height: 18px; margin: -2px 0 8px; font-size: 11px; color: var(--text-2); }
+    .team-rows { display: grid; gap: 8px; }
+    .team-row { display: grid; grid-template-columns: 90px 110px minmax(130px,1fr) minmax(160px,1.4fr) auto auto; gap: 7px; align-items: center; }
+    .team-field { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid var(--border); background: var(--glass-strong); border-radius: 8px; padding: 7px 8px; color: var(--text-1); font: inherit; font-size: 12px; }
+    .team-field:focus { outline: 2px solid rgba(99,102,241,0.2); border-color: var(--indigo); }
+    .team-lead { display: flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 11px; color: var(--text-2); }
+    .team-remove { border: none; background: rgba(239,68,68,0.08); color: var(--red); border-radius: 7px; padding: 6px 8px; cursor: pointer; }
+    .team-settings { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--border); margin-top: 10px; padding-top: 10px; }
+    .team-setting { display: flex; gap: 5px; align-items: center; font-size: 11px; color: var(--text-2); }
+    .team-setting select { border: 1px solid var(--border); background: var(--glass-strong); border-radius: 7px; padding: 5px 7px; font-size: 11px; color: var(--text-1); }
+    .input-row { display: flex; gap: 10px; align-items: flex-end; }
+    .input-box-wrap { flex: 1; min-width: 0; position: relative; }
+    .input-box { width: 100%; resize: none; padding: 12px 16px; border-radius: 14px; border: 1.5px solid var(--border); background: var(--glass-strong); backdrop-filter: blur(12px); font-size: 14.5px; line-height: 1.6; font-family: inherit; color: var(--text-1); min-height: 46px; max-height: 160px; transition: all 0.25s ease; }
+    .input-box::placeholder { color: var(--text-3); }
+    .input-box:focus { outline: none; border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+    .send-btn { padding: 12px 24px; border-radius: 14px; border: none; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.25s ease; white-space: nowrap; }
+    .send-btn:not(:disabled) { background: var(--holographic); background-size: 200% 200%; animation: holoShift 5s ease infinite; color: #fff; }
+    .send-btn:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.35); }
+    .send-btn:disabled { background: rgba(144,140,160,0.2); color: var(--text-3); cursor: not-allowed; }
+    .input-actions { display: flex; gap: 6px; align-items: center; }
+    .input-tool-btn, .stop-btn { border: 1px solid var(--border-hi); border-radius: 10px; padding: 9px 10px; background: rgba(99,102,241,.08); color: var(--indigo); font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .input-tool-btn:hover { background: rgba(99,102,241,.16); }
+    .input-tool-btn:disabled, .stop-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .stop-btn { display: none; background: rgba(239,68,68,.1); color: var(--red); border-color: rgba(239,68,68,.35); }
+    .stop-btn.show { display: inline-block; }
+    .attachment-strip { display: none; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; }
+    .attachment-strip.show { display: flex; }
+    .attachment-chip { display: flex; align-items: center; gap: 6px; max-width: 220px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 9px; background: rgba(255,255,255,.65); font-size: 11px; color: var(--text-2); }
+    .attachment-chip img { width: 34px; height: 34px; object-fit: cover; border-radius: 6px; }
+    .attachment-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .attachment-chip button { border: none; background: transparent; color: var(--red); cursor: pointer; font-size: 14px; }
+    .input-hint { margin-top: 5px; color: var(--text-3); font-size: 11px; }
+    .welcome-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; gap: 16px; }
+    .welcome-screen .logo { font-size: 48px; }
+    .welcome-screen h2 { font-size: 22px; font-weight: 800; background: var(--holographic); background-size: 200% 200%; animation: holoShift 5s ease infinite; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .welcome-screen p { font-size: 15px; color: var(--text-3); max-width: 400px; line-height: 1.8; }
+    .sidebar-backdrop { display: none; }
+    button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }
+    @media (max-width: 1200px) {
+      .team-builder-head { align-items: flex-start; flex-direction: column; }
+      .team-builder-actions { width: 100%; justify-content: flex-start; }
+      .team-row { grid-template-columns: minmax(110px, .65fr) minmax(120px, .8fr); }
+      .team-row .team-role, .team-row .team-focus { grid-column: 1 / -1; }
+    }
+    @media (max-width: 768px) {
+      .bg-blob { display: none; }
+      .sidebar { position: fixed; left: 0; top: 0; height: 100%; z-index: 100; transform: translateX(0); margin-left: 0; width: min(var(--sidebar-width, 260px), 86vw); }
+      .sidebar.collapsed { margin-left: 0; transform: translateX(-100%); }
+      .trace-sidebar { position: fixed; right: 0; top: 0; height: 100%; z-index: 100; transform: translateX(0); margin-right: 0; width: min(var(--trace-width, 390px), 94vw); }
+      .trace-sidebar.collapsed { margin-right: 0; transform: translateX(100%); }
+      .sidebar-backdrop.show { display: block; position: fixed; inset: 0; z-index: 90; background: rgba(30,27,46,0.28); }
+      .main { width: 100vw; }
+      .header { padding: 10px 12px; gap: 8px; }
+      .app-mode-group { gap: 2px; }
+      .app-mode-btn { padding: 8px 10px; }
+      .input-area { height: auto; max-height: none; min-height: 138px; padding: 0 12px 12px; }
+      .controls-panel { max-height: 48vh; }
+      .resize-handle-sidebar, .resize-handle-input { display: none; }
+      .input-row { gap: 8px; }
+      .bubble { max-width: 85%; }
+      .gate-actions { flex-direction: column; }
+      .workspace-bar { flex-wrap: wrap; }
+      .workspace-path { max-width: 100%; width: 100%; }
+      .team-row { grid-template-columns: 1fr 1fr; }
+      .context-panel { max-height: 52vh; overflow-y: auto; }
+      .context-form { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .input-row { flex-direction: column; align-items: stretch; }
+      .send-btn { width: 100%; }
+      .input-actions { width: 100%; }
+      .input-tool-btn, .stop-btn { flex: 1; }
+      .collab-mode-group { max-width: 100%; overflow-x: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-blob b1"></div>
+  <div class="bg-blob b2"></div>
+  <div class="bg-blob b3"></div>
+
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">📁 任务列表</div>
+      <button class="new-session-btn" id="newSessionBtn">➕ 新建任务</button>
+    </div>
+    <div class="session-list" id="sessionList"></div>
+    <div class="sidebar-footer">未来已来 · 本地 AI 工作台</div>
+  </div>
+  <div class="resize-handle resize-handle-sidebar" id="sidebarResizer" role="separator" aria-orientation="vertical" aria-label="调整任务列表宽度" title="拖动调整任务列表宽度"></div>
+  <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
+
+  <div class="main">
+    <div class="header">
+      <button class="sidebar-toggle" id="sidebarToggle" title="收起/展开任务列表" aria-label="收起或展开任务列表" aria-controls="sidebar">☰</button>
+      <div class="app-mode-group">
+        <button class="app-mode-btn active" data-appmode="chat">💬 对话</button>
+        <button class="app-mode-btn" data-appmode="discussion">🧭 方案讨论</button>
+        <button class="app-mode-btn" data-appmode="collab">🤝 协作</button>
+      </div>
+      <div class="header-spacer"></div>
+      <button class="sidebar-toggle" id="traceToggle" title="收起/展开智能体轨迹" aria-label="收起或展开智能体轨迹" aria-controls="traceSidebar" aria-expanded="false">📜</button>
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span id="statusText">就绪</span>
+      </div>
+    </div>
+
+    <div class="chat-area" id="chatArea">
+      <div class="welcome-screen">
+        <div class="logo">🚀</div>
+        <h2>未来已来</h2>
+        <p>你的 AI 团队工作台。<br>点击左侧「➕ 新建任务」开始你的第一个项目。<br>Claude Code 和 Codex 在这里等你指挥。</p>
+      </div>
+    </div>
+
+    <div class="input-area" id="inputArea">
+      <div class="resize-handle resize-handle-input" id="inputResizer" role="separator" aria-orientation="horizontal" aria-label="调整对话区和输入区高度" title="拖动调整上下区域高度"></div>
+      <div class="controls-panel" id="controlsPanel">
+        <div class="workspace-bar" id="workspaceBar">
+          <span class="workspace-path" id="workspacePath" title="当前工作目录">📂 尚未绑定工作目录</span>
+          <input class="workspace-command" id="workspaceCommand" placeholder="输入 cd /路径、pwd 或 ls">
+          <button class="workspace-run" id="workspaceRun" type="button">运行</button>
+          <button class="context-toggle" id="contextToggle" type="button" aria-expanded="false">🧠 团队记忆</button>
+        </div>
+        <div class="context-panel" id="contextPanel">
+        <div class="context-form">
+          <select class="team-field" id="contextType" aria-label="记忆类型">
+            <option value="goal">目标</option><option value="product">产品</option><option value="architecture">架构</option>
+            <option value="decision">决定</option><option value="constraint" selected>约束</option><option value="operation">操作</option><option value="lesson">经验</option>
+          </select>
+          <input class="team-field" id="contextTitle" placeholder="记忆标题">
+          <textarea class="team-field" id="contextContent" placeholder="写下确认过的目标、约束、决定或经验"></textarea>
+          <button class="team-add-btn" id="contextAdd" type="button">添加并批准</button>
+        </div>
+        <div class="team-builder-note">你手动添加的内容会立即批准；AI 产生的记忆建议必须由你单独批准后，才会进入后续任务上下文。</div>
+        <div class="context-list" id="contextList"></div>
+        </div>
+        <div class="agent-selector" id="agentSelector">
+        <span class="agent-label">对话对象（可多选）：</span>
+        <button class="agent-btn active" data-agent="claude" type="button" aria-pressed="true">✦ Claude</button>
+        <button class="agent-btn" data-agent="codex" type="button" aria-pressed="false">◈ Codex</button>
+        <button class="agent-btn" data-agent="dsh" type="button" aria-pressed="false">◆ DeepSeek</button>
+        <button class="agent-btn" data-agent="all" type="button" aria-pressed="false">⚡ 全选</button>
+        <label class="dual-strategy" id="dualStrategyControl">多 AI 方式
+          <select id="dualStrategy">
+            <option value="cross_check" selected>互相确认（更可靠）</option>
+            <option value="independent">独立并行（更快）</option>
+          </select>
+        </label>
+        </div>
+        <div class="provider-health" id="providerHealth" aria-live="polite">正在检查本机 AI 运行时…</div>
+        <div class="collab-controls" id="collabControls">
+        <span class="agent-label">协作模式：</span>
+        <div class="collab-mode-group">
+          <button class="collab-mode-btn active" data-mode="cocreation">📝 共创</button>
+          <button class="collab-mode-btn" data-mode="review">🔍 审查</button>
+          <button class="collab-mode-btn" data-mode="adversarial">⚔️ 对抗</button>
+          <button class="collab-mode-btn" data-mode="division">🤝 分工</button>
+        </div>
+        <label class="gate-toggle">
+          <input type="checkbox" id="gateCheckbox" checked disabled>
+          <span>必须由你确认后再执行</span>
+        </label>
+        </div>
+        <div class="team-builder" id="teamBuilder">
+        <div class="team-builder-head">
+          <div>
+            <div class="team-builder-title">本次 AI 团队</div>
+            <div class="team-builder-note">Claude/Codex/DeepSeek 是仅你可见的技术选择；参会成员只看到会议姓名、编号、角色和职责。</div>
+            <div class="team-builder-note">应用记忆：同一任务内，成员编号不变就会载入自己的历史，更名不会丢失；删除后重新添加视为新成员。同一次运行的已完成结果会复用；底层采用临时会话，跨轮不保证缓存命中。</div>
+          </div>
+          <div class="team-builder-actions">
+            <select class="team-planner-select" id="teamPlannerProvider" aria-label="组队顾问">
+              <option value="claude">Claude 建议分工</option>
+              <option value="codex">Codex 建议分工</option>
+              <option value="dsh">DeepSeek 建议分工</option>
+            </select>
+            <button class="team-add-btn" id="teamSuggestBtn" type="button">✨ AI 建议团队</button>
+            <button class="team-add-btn" id="teamAddBtn" type="button">＋ 添加分身</button>
+          </div>
+        </div>
+        <div class="team-suggest-status" id="teamSuggestStatus">先描述任务目标，再让 AI 按这个具体任务建议分工；建议不会自动开始任务。</div>
+        <div class="team-rows" id="teamRows"></div>
+        <div class="team-settings">
+          <label class="team-setting">共识规则
+            <select id="consensusPolicy">
+              <option value="user_decides">保留分歧，由我决定</option>
+              <option value="unanimous">全体确认</option>
+              <option value="majority">多数确认且无人阻断</option>
+            </select>
+          </label>
+          <label class="team-setting">交叉对话轮数
+            <select id="dialogueRounds">
+              <option value="1">1 轮</option>
+              <option value="2" selected>2 轮</option>
+              <option value="3">3 轮</option>
+              <option value="4">4 轮</option>
+              <option value="5">5 轮</option>
+            </select>
+          </label>
+        </div>
+        </div>
+      </div>
+      <button class="controls-toggle" id="controlsToggle" type="button" aria-expanded="true" aria-controls="controlsPanel" title="折叠或展开输入区上方设置">⌄</button>
+      <div class="attachment-strip" id="attachmentStrip" aria-live="polite"></div>
+      <div class="input-row">
+        <div class="input-box-wrap">
+          <textarea class="input-box" id="inputBox" placeholder="输入你的想法…（Shift+Enter 发送，Enter 换行，Esc 终止运行中的任务）" rows="1"></textarea>
+          <div class="input-hint">可直接粘贴图片，或拖入图片；附件只会发送给本次任务的智能体</div>
+        </div>
+        <div class="input-actions">
+          <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
+          <input id="folderInput" type="file" webkitdirectory directory multiple hidden>
+          <button class="input-tool-btn" id="imageBtn" type="button" title="添加图片">🖼️ 图片</button>
+          <button class="input-tool-btn" id="folderBtn" type="button" title="添加文件夹">📁 文件夹</button>
+          <button class="stop-btn" id="stopBtn" type="button">⏹ 终止</button>
+          <button class="send-btn" id="sendBtn" disabled>发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="trace-sidebar collapsed" id="traceSidebar">
+    <div class="trace-header">
+      <div class="trace-title-row">
+        <div class="trace-title">智能体轨迹</div>
+        <span class="trace-live idle" id="traceLive">已保存</span>
+        <button class="trace-close" id="traceClose" type="button" aria-label="关闭轨迹侧栏">×</button>
+      </div>
+      <div class="trace-note">只展示 Provider 与确定性代码实际记录的事件；隐藏思维链和 Provider 未提供的数据不会被猜测补全。</div>
+      <div class="trace-summary" id="traceSummary" aria-label="轨迹统计"></div>
+    </div>
+    <div class="trace-toolbar">
+      <input class="trace-search" id="traceSearch" type="search" placeholder="搜索命令、文件、工具或错误" aria-label="搜索轨迹">
+      <div class="trace-filters" id="traceFilters" aria-label="筛选轨迹类型">
+        <button class="trace-filter active" type="button" data-filter="all">全部</button>
+        <button class="trace-filter" type="button" data-filter="command">命令</button>
+        <button class="trace-filter" type="button" data-filter="file">文件</button>
+        <button class="trace-filter" type="button" data-filter="tool">工具</button>
+        <button class="trace-filter" type="button" data-filter="failed">异常</button>
+      </div>
+    </div>
+    <div class="trace-list" id="traceList"></div>
+  </div>
+
+  <script src="/marked.min.js"></script>
+  <script src="/purify.min.js"></script>
+  <script>
+    // ============================================================
+    //  状态管理 —— 每个任务独立追踪，互不阻塞
+    // ============================================================
+    let currentSessionId = null;
+    let appMode = 'chat';
+    const CHAT_PROVIDER_ORDER = ['claude', 'codex', 'dsh'];
+    let selectedChatProviders = new Set(['claude']);
+    let availableChatProviders = new Set(CHAT_PROVIDER_ORDER);
+    let dualStrategy = 'cross_check';
+    let collabMode = 'cocreation';
+    let teamAgentCounter = 2;
+    let teamAgents = [
+      { id: 'claude-1', provider: 'claude', name: '目标探索员', role: '多角度探索者', focus: '理解目标、提出方案并主动说明假设' },
+      { id: 'codex-1', provider: 'codex', name: '证据核验员', role: '证据挑战者', focus: '寻找反例、缺失证据、边界情况和验证方法' }
+    ];
+    let teamLeadAgentId = 'claude-1';
+    let currentWorkspacePath = null;
+    let pendingAttachments = [];
+    let pendingFolder = null;
+    let folderUploadInProgress = false;
+
+    // 多任务并行核心：记录哪些任务正在后台运行
+    const busySessions = new Set();         // 正在处理的 sessionId 集合
+    const activeThinkers = new Map();        // sessionId → { agent, role } 当前思考状态
+    const draftMessages = new Map();          // `${sessionId}-${agent}-${phase}` → 流式草稿 DOM 元素
+    const pendingGates = new Map();          // sessionId → { plan, mode } 等待用户确认的闸门
+    const collabSessionModes = new Map();    // sessionId → 协作模式（用于闸门确认）
+    const activeRuns = new Map();            // sessionId → durable runId
+    const runSequences = new Map();          // runId → 最后收到的持久事件序号
+    const runConnections = new Set();        // 防止同一个运行重复建立事件连接
+    const runHandlers = new Map();           // runId → 该运行的事件处理器（聊天/协作各不相同）
+    const traceEntries = new Map();          // sessionId → { runs, entries, page, loading, error }
+    const expandedTraceGroups = new Map();   // sessionId → Set(已展开的调用编号)
+    let traceFilter = 'all';
+    let traceSearchQuery = '';
+
+    // 只清理指定任务的流式草稿；全局 clear 会把其他正在输出任务的草稿一起删掉。
+    function clearDraftMessages(sessionId) {
+      if (!sessionId) { draftMessages.clear(); return; }
+      const prefix = `${sessionId}-`;
+      for (const key of [...draftMessages.keys()]) {
+        if (key.startsWith(prefix)) {
+          draftMessages.get(key)?.remove?.();
+          draftMessages.delete(key);
+        }
+      }
+    }
+
+    const chatArea = document.getElementById('chatArea');
+    const inputBox = document.getElementById('inputBox');
+    const sendBtn = document.getElementById('sendBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const attachmentStrip = document.getElementById('attachmentStrip');
+    const sessionList = document.getElementById('sessionList');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+    const controlsPanel = document.getElementById('controlsPanel');
+    const controlsToggle = document.getElementById('controlsToggle');
+    const inputArea = document.getElementById('inputArea');
+    const sidebarResizer = document.getElementById('sidebarResizer');
+    const inputResizer = document.getElementById('inputResizer');
+    const traceSidebar = document.getElementById('traceSidebar');
+    const traceToggle = document.getElementById('traceToggle');
+    const traceList = document.getElementById('traceList');
+    const traceClose = document.getElementById('traceClose');
+    const traceLive = document.getElementById('traceLive');
+    const traceSummary = document.getElementById('traceSummary');
+    const traceSearch = document.getElementById('traceSearch');
+    const traceFilters = document.getElementById('traceFilters');
+
+    function loadLayoutPreference(key, fallback) {
+      try { const value = localStorage.getItem(key); return value === null ? fallback : value; } catch (_) { return fallback; }
+    }
+
+    function saveLayoutPreference(key, value) {
+      try { localStorage.setItem(key, String(value)); } catch (_) {}
+    }
+
+    function setControlsCollapsed(collapsed, persist = true) {
+      controlsPanel.classList.toggle('collapsed', collapsed);
+      inputArea.classList.toggle('controls-collapsed', collapsed);
+      controlsToggle.textContent = collapsed ? '⌃' : '⌄';
+      controlsToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      controlsToggle.title = collapsed ? '展开输入区上方设置' : '折叠输入区上方设置';
+      if (persist) saveLayoutPreference('futureWorkbench.controlsCollapsed', collapsed ? 'true' : 'false');
+    }
+
+    function applyLayoutPreferences() {
+      const savedSidebarWidth = Number.parseInt(loadLayoutPreference('futureWorkbench.sidebarWidth', '260'), 10);
+      if (Number.isFinite(savedSidebarWidth)) document.documentElement.style.setProperty('--sidebar-width', `${Math.max(220, Math.min(420, savedSidebarWidth))}px`);
+      const savedInputHeight = Number.parseInt(loadLayoutPreference('futureWorkbench.inputAreaHeight', '360'), 10);
+      if (Number.isFinite(savedInputHeight) && window.innerWidth > 768) inputArea.style.setProperty('--input-area-height', `${Math.max(138, Math.min(Math.round(window.innerHeight * .72), savedInputHeight))}px`);
+      setControlsCollapsed(loadLayoutPreference('futureWorkbench.controlsCollapsed', 'false') === 'true', false);
+    }
+
+    function beginResize(handle, move) {
+      const onMove = (event) => move(event);
+      const onEnd = () => {
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onEnd);
+        window.removeEventListener('pointercancel', onEnd);
+      };
+      handle.classList.add('dragging');
+      document.body.style.cursor = getComputedStyle(handle).cursor;
+      document.body.style.userSelect = 'none';
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onEnd);
+      window.addEventListener('pointercancel', onEnd);
+    }
+
+    sidebarResizer.addEventListener('pointerdown', (event) => {
+      if (window.innerWidth <= 768) return;
+      event.preventDefault();
+      beginResize(sidebarResizer, (moveEvent) => {
+        const width = Math.max(220, Math.min(420, moveEvent.clientX));
+        document.documentElement.style.setProperty('--sidebar-width', `${width}px`);
+        saveLayoutPreference('futureWorkbench.sidebarWidth', Math.round(width));
+      });
+    });
+
+    inputResizer.addEventListener('pointerdown', (event) => {
+      if (window.innerWidth <= 768) return;
+      event.preventDefault();
+      beginResize(inputResizer, (moveEvent) => {
+        const height = Math.max(138, Math.min(Math.round(window.innerHeight * .72), window.innerHeight - moveEvent.clientY));
+        inputArea.style.setProperty('--input-area-height', `${height}px`);
+        saveLayoutPreference('futureWorkbench.inputAreaHeight', Math.round(height));
+      });
+    });
+
+    function setAppMode(nextMode, persist = true) {
+      appMode = ['chat', 'discussion', 'collab'].includes(nextMode) ? nextMode : 'chat';
+      document.querySelectorAll('.app-mode-btn').forEach(button => button.classList.toggle('active', button.dataset.appmode === appMode));
+      updateModeUI();
+      if (persist && currentSessionId) {
+        apiFetch('/api/sessions/' + encodeURIComponent(currentSessionId), {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: appMode })
+        }).catch(() => {});
+      }
+    }
+
+    function updateWorkspaceDisplay(workspacePath) {
+      currentWorkspacePath = workspacePath || null;
+      const label = document.getElementById('workspacePath');
+      const commandInput = document.getElementById('workspaceCommand');
+      label.textContent = currentWorkspacePath ? `🔒 ${currentWorkspacePath}` : '📂 尚未绑定工作目录';
+      label.title = currentWorkspacePath ? '此任务的工作目录已永久锁定；可用 pwd 或 ls 只读查看' : '首次使用 cd 绑定后，本任务内不能更换';
+      commandInput.placeholder = currentWorkspacePath ? '目录已锁定；可输入 pwd 或 ls [子目录]' : '首次输入 cd /绝对路径 进行绑定';
+      if (document.getElementById('contextPanel')?.classList.contains('show')) loadContextNodes();
+    }
+
+    async function submitWorkspaceCommand() {
+      const input = document.getElementById('workspaceCommand');
+      const command = input.value.trim();
+      if (!command) return;
+      const sessionId = await ensureSession();
+      const button = document.getElementById('workspaceRun');
+      button.disabled = true;
+      try {
+        const resp = await apiFetch('/api/workspace/command', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, command })
+        });
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok) throw new Error(getErrorMessage(data, '工作区命令失败'));
+        updateWorkspaceDisplay(data.workspacePath);
+        addStatusMessage(`⌨️ ${command}\n${data.output}`);
+        input.value = '';
+      } catch (error) {
+        addStatusMessage('⚠️ ' + error.message);
+      } finally { button.disabled = false; }
+    }
+
+    function contextScopeMatches(scope) {
+      if (scope === 'global') return true;
+      if (!currentWorkspacePath) return true;
+      return currentWorkspacePath === scope || currentWorkspacePath.startsWith(scope.endsWith('/') ? scope : scope + '/');
+    }
+
+    async function loadContextNodes() {
+      const list = document.getElementById('contextList');
+      list.innerHTML = '<div class="team-builder-note">正在读取团队记忆…</div>';
+      try {
+        const response = await apiFetch('/api/context/nodes');
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(getErrorMessage(data, '团队记忆读取失败'));
+        const nodes = (data.nodes || []).filter(node => contextScopeMatches(node.scope));
+        if (!nodes.length) {
+          list.innerHTML = '<div class="team-builder-note">当前范围还没有团队记忆。</div>';
+          return;
+        }
+        list.innerHTML = nodes.map(node => `
+          <div class="context-node" data-node-id="${escapeHtml(node.id)}" data-node-updated-at="${escapeHtml(node.updatedAt)}">
+            <div class="context-node-head"><span class="context-node-title">${node.status === 'approved' ? '✅' : node.status === 'proposed' ? '⏳' : '○'} ${escapeHtml(node.title)}</span><span>${escapeHtml(node.type)} · ${escapeHtml(node.status)}</span></div>
+            <div class="context-node-content">${escapeHtml(node.content)}</div>
+            ${node.status === 'proposed' ? `<div class="context-node-actions"><button data-decision="approved">批准</button><button data-decision="rejected">拒绝</button></div>` : ''}
+          </div>`).join('');
+        list.querySelectorAll('[data-decision]').forEach(button => button.addEventListener('click', () => {
+          const node = button.closest('[data-node-id]');
+          decideContextNode(node.dataset.nodeId, button.dataset.decision, node.dataset.nodeUpdatedAt);
+        }));
+      } catch (error) {
+        list.innerHTML = `<div class="team-builder-note">⚠️ ${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    async function addContextNode() {
+      const title = document.getElementById('contextTitle').value.trim();
+      const content = document.getElementById('contextContent').value.trim();
+      if (!title || !content) { addStatusMessage('⚠️ 请填写记忆标题和内容。'); return; }
+      const button = document.getElementById('contextAdd');
+      button.disabled = true;
+      try {
+        const response = await apiFetch('/api/context/nodes', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scope: currentWorkspacePath || 'global',
+            type: document.getElementById('contextType').value,
+            title, content, source: 'user', approve: true
+          })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(getErrorMessage(data, '团队记忆添加失败'));
+        document.getElementById('contextTitle').value = '';
+        document.getElementById('contextContent').value = '';
+        addStatusMessage('🧠 已加入一条用户批准的团队记忆。');
+        await loadContextNodes();
+      } catch (error) { addStatusMessage('⚠️ ' + error.message); }
+      finally { button.disabled = false; }
+    }
+
+    async function decideContextNode(nodeId, status, expectedUpdatedAt) {
+      try {
+        const response = await apiFetch(`/api/context/nodes/${encodeURIComponent(nodeId)}/decision`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, expectedUpdatedAt })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(getErrorMessage(data, '团队记忆审核失败'));
+        addStatusMessage(status === 'approved' ? '✅ 这条建议已批准，后续相关任务可以引用。' : '○ 这条建议已拒绝，不会进入任务上下文。');
+        await loadContextNodes();
+      } catch (error) { addStatusMessage('⚠️ ' + error.message); }
+    }
+
+    // API 统一入口：令牌只保存在当前浏览器标签页，后端开启认证时再按需询问用户。
+    let authToken = sessionStorage.getItem('futureWorkbenchToken') || '';
+    function explainNetworkFailure(error) {
+      // Safari 对本机服务未启动通常只给出难以理解的 “Load failed”。
+      if (error instanceof TypeError || /load failed|failed to fetch|networkerror/i.test(String(error?.message || ''))) {
+        return new Error('无法连接本地工作台服务。请确认终端正在运行 npm start，并在浏览器打开 http://127.0.0.1:3456 后按 Cmd+R 刷新。');
+      }
+      return error;
+    }
+    async function apiFetch(input, options = {}) {
+      const { _authRetry, ...fetchOptions } = options;
+      const headers = new Headers(fetchOptions.headers || {});
+      if (authToken) headers.set('Authorization', `Bearer ${authToken}`);
+      let response;
+      try {
+        response = await fetch(input, { ...fetchOptions, headers });
+      } catch (error) {
+        throw explainNetworkFailure(error);
+      }
+      if (response.status !== 401 || _authRetry) return response;
+      const token = window.prompt('此工作台已启用访问令牌，请输入 WORKBENCH_TOKEN：');
+      if (!token) return response;
+      authToken = token.trim();
+      sessionStorage.setItem('futureWorkbenchToken', authToken);
+      return apiFetch(input, { ...fetchOptions, _authRetry: true });
+    }
+
+    function getErrorMessage(data, fallback = '请求失败') {
+      if (!data) return fallback;
+      if (typeof data.error === 'string') return data.error;
+      return data.error?.message || fallback;
+    }
+
+    async function consumeSseResponse(response, onEvent) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop();
+        for (const block of blocks) {
+          const data = block.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
+          if (data) onEvent(JSON.parse(data));
+        }
+      }
+      buffer += decoder.decode();
+      if (buffer.trim()) {
+        const data = buffer.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
+        if (data) onEvent(JSON.parse(data));
+      }
+    }
+
+    async function connectDurableEvents(runId, sessionId, afterSequence, handler, attempts = 0) {
+      if (!runId || runConnections.has(runId)) return;
+      runConnections.add(runId);
+      // 记住这个运行该用哪种处理器，断线恢复时才能接对管道。
+      runHandlers.set(runId, handler);
+      trackActiveRun(sessionId, runId);
+      busySessions.add(sessionId);
+      updateGlobalStatus();
+      try {
+        const after = Math.max(afterSequence, runSequences.get(runId) || 0);
+        const response = await apiFetch(`/api/runs/${encodeURIComponent(runId)}/events?after=${after}`);
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          throw new Error(getErrorMessage(data, '无法恢复运行事件'));
+        }
+        await consumeSseResponse(response, (event) => {
+          // 历史事件超过重放上限时，服务端按当前游标截断并关闭流；
+          // 这里更新游标后重新续接，避免界面一直停留在”进行中”。
+          if (event.type === 'replay_truncated' && Number.isInteger(event.sequence)) {
+            runSequences.set(runId, Math.max(runSequences.get(runId) || 0, Number(event.sequence) || 0));
+            if (attempts < 5) {
+              runConnections.delete(runId);
+              connectDurableEvents(runId, sessionId, Number(event.sequence) || 0, handler, attempts + 1);
+            } else if (sessionId === currentSessionId) {
+              addStatusMessage('⚠️ 事件重放连续被截断，请刷新页面恢复最新状态。');
+            }
+            return;
+          }
+          handler(event, sessionId);
+        });
+      } catch (error) {
+        if (sessionId === currentSessionId) addStatusMessage('⚠️ 后台任务仍会保留；事件连接暂时中断：' + error.message);
+      } finally {
+        runConnections.delete(runId);
+        // SSE 流结束后，如果界面仍标记为”进行中”，向服务端核实真实状态。
+        if (busySessions.has(sessionId)) verifyRunStateAndRecover(runId, sessionId);
+        loadSessionList().catch(() => {});
+      }
+    }
+
+    // SSE 断线恢复：向服务端查询运行的真实状态。
+    // 已达终态 → 清理界面；仍在运行 → 重新续接事件流。
+    async function verifyRunStateAndRecover(runId, sessionId) {
+      if (!runId || !busySessions.has(sessionId)) return;
+      try {
+        const response = await apiFetch(`/api/runs/${encodeURIComponent(runId)}`);
+        const run = await response.json().catch(() => null);
+        if (!response.ok || !run) throw new Error(getErrorMessage(run, '无法读取运行状态'));
+        if (['succeeded', 'partial', 'failed', 'cancelled', 'dead_letter'].includes(run.state)) {
+          busySessions.delete(sessionId);
+          activeRuns.delete(sessionId);
+          activeThinkers.delete(sessionId);
+          clearDraftMessages(sessionId);
+          updateGlobalStatus();
+          updateSendBtn();
+          if (sessionId === currentSessionId) {
+            removeThinker();
+            removeChatProgress();
+            const stateLabel = { succeeded: '已完成', failed: '已失败', cancelled: '已终止', partial: '部分完成', dead_letter: '已失效' }[run.state] || '已结束';
+            addStatusMessage(`ℹ️ 连接恢复后发现任务${stateLabel}。`);
+          }
+        } else {
+          // 任务仍在后台运行，重新续接事件流。
+          // 必须沿用该运行原本的处理器：协作运行接上聊天处理器会把闸门/交付事件全部静默丢弃。
+          connectDurableEvents(runId, sessionId, runSequences.get(runId) || 0, runHandlers.get(runId) || handleChatEvent);
+        }
+      } catch (error) {
+        if (sessionId === currentSessionId) addStatusMessage('⚠️ 无法确认任务状态，建议刷新页面：' + error.message);
+      }
+    }
+
+    function connectRunEvents(runId, sessionId, afterSequence = 0) {
+      return connectDurableEvents(runId, sessionId, afterSequence, handleChatEvent);
+    }
+
+    function connectCollaborationEvents(runId, sessionId, afterSequence = 0) {
+      return connectDurableEvents(runId, sessionId, afterSequence, handleCollabEvent);
+    }
+
+    // ============================================================
+    //  智能体轨迹 —— 从持久事件投影，不根据聊天文本猜测过程
+    // ============================================================
+    const TRACE_KIND_ICONS = { invocation: '◉', step: '◆', command: '⌘', read: '↗', file: '✎', search: '⌕', tool: '◇', reasoning: '◌', usage: '∑', notice: '!' };
+    const TRACE_KIND_LABELS = { invocation: 'Provider 调用', step: '执行步骤', command: '执行命令', read: '读取文件', file: '修改文件', search: '搜索', tool: '工具调用', reasoning: '推理摘要', usage: '用量统计', notice: '运行通知' };
+    const TRACE_STATUS_LABELS = { started: '进行中', running: '进行中', succeeded: '成功', failed: '失败', cancelled: '已取消', info: '记录' };
+    const TRACE_RUN_LABELS = { chat: '团队对话', discussion: '方案讨论', collaboration: '团队协作', execution: '隔离执行' };
+    const TRACE_RUN_STATE_LABELS = { queued: '排队中', running: '进行中', interrupted: '已中断', succeeded: '已完成', partial: '部分完成', failed: '失败', cancelled: '已取消', dead_letter: '无法恢复' };
+
+    function emptyTraceState() {
+      return { runs: [], entries: [], page: { hasMore: false, beforeRunId: null }, loading: false, error: '', initialized: false, scrollToEnd: false };
+    }
+
+    function getTraceState(sessionId) {
+      if (!sessionId) return emptyTraceState();
+      if (!traceEntries.has(sessionId)) traceEntries.set(sessionId, emptyTraceState());
+      return traceEntries.get(sessionId);
+    }
+
+    function tracePhaseLabel(phase) {
+      return phase === 'cross_check' ? '互相确认' : phase === 'answer' ? '独立意见' : phase === 'execute' ? '执行' : phase === 'verify' ? '验证' : phase || '';
+    }
+
+    function normalizeTraceEntry(event) {
+      const legacyKind = event.kind === 'think' ? 'reasoning' : event.kind === 'start' || event.kind === 'done' ? 'invocation' : event.kind;
+      const kind = TRACE_KIND_LABELS[legacyKind] ? legacyKind : 'tool';
+      const legacyStatus = event.kind === 'start' ? 'started' : event.kind === 'done' ? 'succeeded' : 'info';
+      const status = TRACE_STATUS_LABELS[event.status] ? event.status : legacyStatus;
+      const agent = CHAT_PROVIDER_ORDER.includes(event.agent) ? event.agent : 'claude';
+      const eventAt = event.eventAt || event.createdAt || new Date().toISOString();
+      return {
+        schemaVersion: Number(event.schemaVersion) || 0,
+        runId: String(event.runId || 'legacy-run'),
+        runKind: String(event.runKind || ''),
+        runState: String(event.runState || ''),
+        runCreatedAt: event.runCreatedAt || eventAt,
+        sequence: Number(event.sequence) || 0,
+        invocationId: String(event.invocationId || `legacy:${agent}:${event.instanceName || event.memberName || ''}:${event.phase || ''}`),
+        actionId: event.actionId ? String(event.actionId) : '',
+        agent,
+        group: String(event.instanceName || event.memberName || providerDisplayName(agent) || agent),
+        phase: tracePhaseLabel(event.phase),
+        kind,
+        status,
+        title: String(event.title || TRACE_KIND_LABELS[kind] || '运行事件'),
+        summary: String(event.summary === undefined ? event.detail || '' : event.summary),
+        summaryTruncated: Boolean(event.summaryTruncated),
+        source: String(event.source || 'legacy'),
+        visibility: ['full', 'summary', 'provider_limited'].includes(event.visibility) ? event.visibility : 'summary',
+        eventAt,
+        input: event.input && typeof event.input === 'object' ? event.input : null,
+        output: event.output && typeof event.output === 'object' ? event.output : null,
+        metrics: event.metrics && typeof event.metrics === 'object' ? event.metrics : null,
+        error: event.error && typeof event.error === 'object' ? event.error : null
+      };
+    }
+
+    function traceEntryKey(entry) {
+      return entry.sequence ? `${entry.runId}:${entry.sequence}` : `${entry.runId}:${entry.invocationId}:${entry.actionId}:${entry.status}:${entry.eventAt}`;
+    }
+
+    function mergeTracePayload(state, data) {
+      const runMap = new Map(state.runs.map(run => [run.id, run]));
+      for (const run of data.runs || []) runMap.set(run.id, { ...(runMap.get(run.id) || {}), ...run });
+      const entryMap = new Map(state.entries.map(entry => [traceEntryKey(entry), entry]));
+      for (const event of data.traces || []) {
+        const entry = normalizeTraceEntry(event);
+        entryMap.set(traceEntryKey(entry), entry);
+        if (!runMap.has(entry.runId)) runMap.set(entry.runId, { id: entry.runId, kind: entry.runKind || 'chat', state: entry.runState || 'running', createdAt: entry.runCreatedAt });
+      }
+      state.runs = [...runMap.values()].sort((left, right) => String(left.createdAt || '').localeCompare(String(right.createdAt || '')));
+      const runOrder = new Map(state.runs.map((run, index) => [run.id, index]));
+      state.entries = [...entryMap.values()].sort((left, right) => (runOrder.get(left.runId) ?? 0) - (runOrder.get(right.runId) ?? 0) || left.sequence - right.sequence || String(left.eventAt).localeCompare(String(right.eventAt)));
+      if (data.page) state.page = data.page;
+    }
+
+    function formatTraceTime(iso, includeDate = false) {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '时间未知';
+      return d.toLocaleString('zh-CN', includeDate
+        ? { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }
+        : { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    }
+
+    function formatTraceDuration(milliseconds) {
+      if (!Number.isFinite(Number(milliseconds))) return '';
+      const value = Number(milliseconds);
+      return value < 1000 ? `${Math.round(value)} ms` : value < 60_000 ? `${(value / 1000).toFixed(1)} s` : `${Math.floor(value / 60_000)}m ${Math.round(value % 60_000 / 1000)}s`;
+    }
+
+    function traceVisibilityLabel(value) {
+      return value === 'full' ? '完整事件' : value === 'provider_limited' ? 'Provider 未提供细节' : '事件摘要';
+    }
+
+    function traceMatches(entry) {
+      const typeMatch = traceFilter === 'all'
+        || traceFilter === 'command' && entry.kind === 'command'
+        || traceFilter === 'file' && ['read', 'file'].includes(entry.kind)
+        || traceFilter === 'tool' && ['tool', 'search'].includes(entry.kind)
+        || traceFilter === 'failed' && ['failed', 'cancelled'].includes(entry.status);
+      if (!typeMatch) return false;
+      if (!traceSearchQuery) return true;
+      const haystack = `${entry.title}\n${entry.summary}\n${entry.group}\n${entry.phase}\n${JSON.stringify(entry.input || {})}\n${JSON.stringify(entry.output || {})}\n${JSON.stringify(entry.error || {})}`.toLowerCase();
+      return haystack.includes(traceSearchQuery);
+    }
+
+    function recordTrace(sessionId, event) {
+      if (!sessionId || !event) return;
+      const state = getTraceState(sessionId);
+      const entry = normalizeTraceEntry(event);
+      if (!state.entries.some(item => traceEntryKey(item) === traceEntryKey(entry))) state.entries.push(entry);
+      let run = state.runs.find(item => item.id === entry.runId);
+      if (!run) {
+        run = { id: entry.runId, kind: entry.runKind || 'chat', state: entry.runState || 'running', createdAt: entry.runCreatedAt || entry.eventAt, startedAt: entry.eventAt };
+        state.runs.push(run);
+      }
+      state.initialized = true;
+      if (state.entries.length > 2500) state.entries.splice(0, state.entries.length - 2500);
+      if (sessionId === currentSessionId) renderTraceSidebar();
+    }
+
+    function updateTraceRunState(sessionId, event) {
+      if (!sessionId || !event?.runId) return;
+      const state = getTraceState(sessionId);
+      const run = state.runs.find(item => item.id === event.runId);
+      if (!run) return;
+      const mapped = event.type === 'run_cancelled' ? 'cancelled'
+        : ['chat_error', 'error'].includes(event.type) ? 'failed'
+          : event.type === 'chat_complete' ? event.state || 'succeeded'
+            : ['complete', 'gate', 'plan_ready', 'delivery_gate', 'delivery_completed', 'delivery_discarded'].includes(event.type) ? event.state || 'succeeded' : null;
+      if (!mapped) return;
+      run.state = mapped;
+      run.completedAt = event.eventAt || new Date().toISOString();
+      if (sessionId === currentSessionId) renderTraceSidebar();
+    }
+
+    function renderTraceSummary(entries) {
+      const toolCount = entries.filter(entry => ['command', 'read', 'file', 'search', 'tool'].includes(entry.kind) && entry.status !== 'started').length;
+      const failureCount = entries.filter(entry => ['failed', 'cancelled'].includes(entry.status)).length;
+      const tokenCount = entries.filter(entry => entry.kind === 'usage').reduce((sum, entry) => {
+        const usage = entry.metrics?.usage || {};
+        return sum + Number(usage.totalTokens ?? usage.total_tokens ?? 0)
+          + (Number(usage.totalTokens ?? usage.total_tokens ?? 0) ? 0 : Number(usage.inputTokens ?? usage.input_tokens ?? usage.prompt_tokens ?? 0) + Number(usage.outputTokens ?? usage.output_tokens ?? usage.completion_tokens ?? 0));
+      }, 0);
+      traceSummary.innerHTML = `
+        <div class="trace-summary-item"><span class="trace-summary-value">${entries.length}</span><span class="trace-summary-label">已记录事件</span></div>
+        <div class="trace-summary-item"><span class="trace-summary-value">${toolCount}</span><span class="trace-summary-label">工具结果</span></div>
+        <div class="trace-summary-item"><span class="trace-summary-value">${failureCount}</span><span class="trace-summary-label">异常/取消</span></div>
+        <div class="trace-summary-item"><span class="trace-summary-value">${tokenCount ? tokenCount.toLocaleString('zh-CN') : '—'}</span><span class="trace-summary-label">已记录 Token</span></div>`;
+    }
+
+    function renderTraceEvent(entry) {
+      const detail = {};
+      if (entry.input) detail['输入'] = entry.input;
+      if (entry.output) detail['结果'] = entry.output;
+      if (entry.metrics) detail['统计'] = entry.metrics;
+      if (entry.error) detail['错误'] = entry.error;
+      detail['记录来源'] = entry.source;
+      if (entry.actionId) detail['动作编号'] = entry.actionId;
+      const detailText = JSON.stringify(detail, null, 2);
+      return `
+        <details class="trace-entry status-${entry.status}">
+          <summary aria-label="${escapeHtml(entry.title)}，${escapeHtml(TRACE_STATUS_LABELS[entry.status] || entry.status)}">
+            <span class="trace-entry-dot" aria-hidden="true"></span>
+            <span class="trace-entry-main">
+              <span class="trace-entry-title">${escapeHtml(TRACE_KIND_ICONS[entry.kind] || '·')} ${escapeHtml(entry.title)} · ${escapeHtml(TRACE_STATUS_LABELS[entry.status] || entry.status)}</span>
+              ${entry.summary ? `<span class="trace-entry-summary">${escapeHtml(entry.summary)}</span>` : ''}
+            </span>
+            <time class="trace-entry-time" datetime="${escapeHtml(entry.eventAt)}">${escapeHtml(formatTraceTime(entry.eventAt))}</time>
+          </summary>
+          <div class="trace-entry-detail"><pre>${escapeHtml(detailText)}</pre></div>
+          <div class="trace-entry-flags">${escapeHtml(traceVisibilityLabel(entry.visibility))}${entry.summaryTruncated ? ' · 摘要已截断' : ''}</div>
+        </details>`;
+    }
+
+    function renderTraceSidebar() {
+      if (!traceList || !traceSummary || !traceLive) return;
+      const state = getTraceState(currentSessionId);
+      const wasNearEnd = traceList.scrollHeight - traceList.scrollTop - traceList.clientHeight < 70;
+      traceLive.textContent = currentSessionId && busySessions.has(currentSessionId) ? '记录中' : '已保存';
+      traceLive.classList.toggle('idle', !(currentSessionId && busySessions.has(currentSessionId)));
+      renderTraceSummary(state.entries);
+      if (state.loading && !state.entries.length) {
+        traceList.innerHTML = '<div class="trace-empty">正在读取已保存的轨迹…</div>';
+        return;
+      }
+      if (state.error && !state.entries.length) {
+        traceList.innerHTML = `<div class="trace-error">${escapeHtml(state.error)}<br><button class="trace-retry" type="button">重新读取</button></div>`;
+        traceList.querySelector('.trace-retry')?.addEventListener('click', () => loadSessionTraces(currentSessionId));
+        return;
+      }
+      if (!state.entries.length) {
+        traceList.innerHTML = '<div class="trace-empty">这个任务还没有可核验的轨迹。<br>发送消息后，真实调用、工具动作、结果和耗时会依次出现在这里。</div>';
+        return;
+      }
+      const matching = state.entries.filter(traceMatches);
+      const expanded = expandedTraceGroups.get(currentSessionId) || new Set();
+      const runBlocks = [];
+      if (state.page.hasMore) {
+        runBlocks.push(`<div class="trace-load-wrap"><button class="trace-load-more" type="button" ${state.loading ? 'disabled' : ''}>${state.loading ? '正在加载…' : '加载更早的运行'}</button></div>`);
+      }
+      for (const run of state.runs) {
+        const runEntries = matching.filter(entry => entry.runId === run.id);
+        if (!runEntries.length) continue;
+        const invocationMap = new Map();
+        for (const entry of runEntries) {
+          if (!invocationMap.has(entry.invocationId)) invocationMap.set(entry.invocationId, { id: entry.invocationId, agent: entry.agent, name: entry.group, phase: entry.phase, items: [] });
+          invocationMap.get(entry.invocationId).items.push(entry);
+        }
+        const invocations = [...invocationMap.values()];
+        if (!expanded.size && invocations.length) expanded.add(invocations[invocations.length - 1].id);
+        const duration = run.startedAt && run.completedAt ? formatTraceDuration(Date.parse(run.completedAt) - Date.parse(run.startedAt)) : '';
+        const invocationHtml = invocations.map(invocation => {
+          const latest = invocation.items[invocation.items.length - 1];
+          const visibility = invocation.items.some(item => item.visibility === 'full') ? 'full' : invocation.items.some(item => item.visibility === 'provider_limited') ? 'provider_limited' : 'summary';
+          const agentClass = CHAT_PROVIDER_ORDER.includes(invocation.agent) ? invocation.agent : 'claude';
+          return `
+            <details class="trace-invocation" data-invocation-id="${escapeHtml(invocation.id)}" ${expanded.has(invocation.id) ? 'open' : ''}>
+              <summary>
+                <span class="trace-agent-avatar ${agentClass}">${avatarIconFor(agentClass)}</span>
+                <span class="trace-invocation-info">
+                  <span class="trace-invocation-name">${escapeHtml(invocation.name)}${invocation.phase ? ` · ${escapeHtml(invocation.phase)}` : ''}</span>
+                  <span class="trace-invocation-latest">${escapeHtml(latest.title)}${latest.summary ? ` · ${escapeHtml(latest.summary)}` : ''}</span>
+                </span>
+                <span class="trace-visibility">${escapeHtml(traceVisibilityLabel(visibility))}</span>
+              </summary>
+              <div class="trace-timeline">${invocation.items.map(renderTraceEvent).join('')}</div>
+            </details>`;
+        }).join('');
+        runBlocks.push(`
+          <section class="trace-run" aria-label="${escapeHtml(TRACE_RUN_LABELS[run.kind] || run.kind || '运行')}">
+            <div class="trace-run-head">
+              <span class="trace-run-state ${escapeHtml(run.state || 'running')}" aria-hidden="true"></span>
+              <span class="trace-run-info">
+                <span class="trace-run-title">${escapeHtml(TRACE_RUN_LABELS[run.kind] || run.kind || '运行')} · ${escapeHtml(TRACE_RUN_STATE_LABELS[run.state] || run.state || '进行中')}</span>
+                <span class="trace-run-meta">${escapeHtml(formatTraceTime(run.createdAt, true))}${duration ? ` · ${escapeHtml(duration)}` : ''}</span>
+              </span>
+              <span class="trace-run-count">${runEntries.length}</span>
+            </div>
+            ${invocationHtml}
+          </section>`);
+      }
+      if (!matching.length) runBlocks.push('<div class="trace-no-match">没有符合当前搜索或筛选条件的事件。</div>');
+      if (state.error) runBlocks.push(`<div class="trace-error">部分历史读取失败：${escapeHtml(state.error)}</div>`);
+      traceList.innerHTML = runBlocks.join('');
+      expandedTraceGroups.set(currentSessionId, expanded);
+      traceList.querySelector('.trace-load-more')?.addEventListener('click', () => loadSessionTraces(currentSessionId, { older: true }));
+      traceList.querySelectorAll('.trace-invocation').forEach(element => {
+        element.addEventListener('toggle', () => {
+          const invocationId = element.dataset.invocationId;
+          if (element.open) expanded.add(invocationId); else expanded.delete(invocationId);
+          expandedTraceGroups.set(currentSessionId, expanded);
+        });
+      });
+      if (state.scrollToEnd || wasNearEnd) {
+        traceList.scrollTop = traceList.scrollHeight;
+        state.scrollToEnd = false;
+      }
+    }
+
+    function setTraceSidebarOpen(open, persist = true) {
+      traceSidebar.classList.toggle('collapsed', !open);
+      traceToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) renderTraceSidebar();
+      if (persist) saveLayoutPreference('futureWorkbench.traceOpen', open ? 'true' : 'false');
+    }
+
+    // 切换任务或刷新页面后，从服务端恢复轨迹；更早历史按“运行”分页。
+    async function loadSessionTraces(sessionId, { older = false } = {}) {
+      if (!sessionId) return;
+      const state = getTraceState(sessionId);
+      if (state.loading) return;
+      const beforeRunId = older ? state.page.beforeRunId : null;
+      const previousHeight = traceList?.scrollHeight || 0;
+      const previousTop = traceList?.scrollTop || 0;
+      state.loading = true;
+      state.error = '';
+      if (sessionId === currentSessionId) renderTraceSidebar();
+      try {
+        const query = new URLSearchParams({ limit: '8' });
+        if (beforeRunId) query.set('beforeRunId', beforeRunId);
+        const resp = await apiFetch('/api/sessions/' + encodeURIComponent(sessionId) + '/traces?' + query.toString());
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok || !data) throw new Error(getErrorMessage(data, '无法读取轨迹'));
+        mergeTracePayload(state, data);
+        state.initialized = true;
+        if (!older) state.scrollToEnd = true;
+      } catch (error) {
+        state.error = error.message || '轨迹读取失败';
+      } finally {
+        state.loading = false;
+        if (sessionId === currentSessionId) {
+          renderTraceSidebar();
+          if (older && traceList) traceList.scrollTop = previousTop + Math.max(0, traceList.scrollHeight - previousHeight);
+        }
+      }
+    }
+
+    async function resumeSessionRun(session) {
+      if (!session.job || !['queued', 'running', 'executing', 'interrupted'].includes(session.job.state)) return;
+      const isChatRun = session.job.kind === 'chat';
+      const runId = isChatRun ? session.job.id : (session.job.executionRunId || session.job.id);
+      trackActiveRun(session.id, runId);
+      busySessions.add(session.id);
+      const runAgents = Array.isArray(session.job.agents) && session.job.agents.length
+        ? session.job.agents
+        : session.job.agent === 'all' ? CHAT_PROVIDER_ORDER : [session.job.agent || 'claude'];
+      activeThinkers.set(session.id, { agent: runAgents[0], role: runAgents.length > 1 ? `${runAgents.length} 个 AI 协作中` : '后台运行中' });
+      updateGlobalStatus();
+      try {
+        const response = await apiFetch(`/api/runs/${encodeURIComponent(runId)}`);
+        const run = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(getErrorMessage(run, '无法读取运行状态'));
+        if (['succeeded', 'partial', 'failed', 'cancelled', 'dead_letter'].includes(run.state)) {
+          busySessions.delete(session.id);
+          activeRuns.delete(session.id);
+          activeThinkers.delete(session.id);
+          updateGlobalStatus();
+          updateSendBtn();
+          return;
+        }
+        runSequences.set(runId, run.latestSequence || 0);
+        if (isChatRun) connectRunEvents(runId, session.id, run.latestSequence || 0);
+        else connectCollaborationEvents(runId, session.id, run.latestSequence || 0);
+      } catch (error) {
+        if (session.id === currentSessionId) addStatusMessage('⚠️ ' + error.message);
+      }
+    }
+
+    async function loadProviderHealth() {
+      const label = document.getElementById('providerHealth');
+      try {
+        const response = await apiFetch('/api/providers/health');
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(getErrorMessage(data, '运行时检查失败'));
+        label.innerHTML = data.providers.map(item => `<span class="${item.ready ? 'ready' : 'down'}">${item.ready ? '●' : '×'} ${escapeHtml(providerDisplayName(item.provider))}${item.ready ? ' 已安装' : ' 不可用'}</span>`).join('　');
+        label.title = '这里只确认命令能够启动；账号登录状态会在实际调用时再次验证。';
+        availableChatProviders = new Set(data.providers.filter(item => item.ready).map(item => item.provider));
+        for (const item of data.providers) {
+          const button = document.querySelector(`.agent-btn[data-agent="${item.provider}"]`);
+          if (!button) continue;
+          button.disabled = !item.ready;
+          button.title = item.ready ? '' : (item.error?.message || `${providerDisplayName(item.provider)} 当前不可用`);
+        }
+        for (const provider of [...selectedChatProviders]) {
+          if (!availableChatProviders.has(provider)) selectedChatProviders.delete(provider);
+        }
+        if (selectedChatProviders.size === 0 && availableChatProviders.size > 0) {
+          selectedChatProviders.add(CHAT_PROVIDER_ORDER.find(provider => availableChatProviders.has(provider)));
+        }
+        renderChatProviderSelection();
+      } catch (error) {
+        label.textContent = '⚠️ 暂时无法检查 AI 运行时：' + error.message;
+      }
+    }
+
+    function setSidebarOpen(open) {
+      const mobile = window.innerWidth <= 768;
+      sidebar.classList.toggle('collapsed', !open);
+      sidebarBackdrop.classList.toggle('show', mobile && open);
+      sidebarBackdrop.setAttribute('aria-hidden', mobile && open ? 'false' : 'true');
+      document.getElementById('sidebarToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function closeSidebar() {
+      if (window.innerWidth <= 768) setSidebarOpen(false);
+    }
+
+    // ============================================================
+    //  工具函数
+    // ============================================================
+    function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t || ''; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
+    function renderMarkdown(text) {
+      if (!text) return '';
+      if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') return escapeHtml(text);
+      try {
+        const rawHtml = marked.parse(text);
+        const clean = DOMPurify.sanitize(rawHtml, {
+          ALLOWED_TAGS: ['h1','h2','h3','h4','h5','h6','p','br','hr','ul','ol','li','blockquote','pre','code','em','strong','del','a','table','thead','tbody','tr','th','td','sup','sub','mark'],
+          ALLOWED_ATTR: ['href','title']
+        });
+        return enhanceMarkdownLinks(clean);
+      } catch (e) { return escapeHtml(text); }
+    }
+
+    // AI 输出的链接在新标签页打开，避免用户离开当前任务页面。
+    function enhanceMarkdownLinks(html) {
+      if (!html || !html.includes('<a')) return html;
+      const template = document.createElement('template');
+      template.innerHTML = html;
+      template.content.querySelectorAll('a[href]').forEach((link) => {
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+      });
+      return template.innerHTML;
+    }
+
+    function enhanceCodeBlocks(container) {
+      container.querySelectorAll('pre').forEach(pre => {
+        if (pre.parentElement.classList.contains('code-block-wrapper')) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'code-block-wrapper';
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+        const btn = document.createElement('button');
+        btn.className = 'copy-code-btn';
+        btn.textContent = '📋 复制';
+        btn.addEventListener('click', () => {
+          const code = pre.querySelector('code');
+          navigator.clipboard.writeText(code ? code.textContent : pre.textContent).then(() => {
+            btn.textContent = '✅ 已复制';
+            setTimeout(() => { btn.textContent = '📋 复制'; }, 2000);
+          }).catch(() => { btn.textContent = '❌ 失败'; setTimeout(() => { btn.textContent = '📋 复制'; }, 2000); });
+        });
+        wrapper.appendChild(btn);
+      });
+    }
+
+    function formatTime(iso) {
+      const d = new Date(iso); const diff = (new Date() - d) / 1000;
+      if (diff < 60) return '刚刚';
+      if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
+      if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
+      return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+    }
+
+    function scrollToBottom() { setTimeout(() => { chatArea.scrollTop = chatArea.scrollHeight; }, 50); }
+
+    function nextTeamAgentId(provider) {
+      let id;
+      do { teamAgentCounter += 1; id = `${provider}-${teamAgentCounter}`; }
+      while (teamAgents.some(agent => agent.id === id));
+      return id;
+    }
+
+    function renderTeamBuilder() {
+      const rows = document.getElementById('teamRows');
+      rows.innerHTML = '';
+      for (const agent of teamAgents) {
+        const row = document.createElement('div');
+        row.className = 'team-row';
+        row.dataset.id = agent.id;
+        row.innerHTML = `
+          <select class="team-field team-provider" aria-label="Provider">
+            <option value="claude">Claude</option>
+            <option value="codex">Codex</option>
+            <option value="dsh">DeepSeek (dsh)</option>
+          </select>
+          <input class="team-field team-name" aria-label="会议姓名" placeholder="会议中显示的姓名">
+          <input class="team-field team-role" aria-label="临时角色" placeholder="本次临时角色">
+          <input class="team-field team-focus" aria-label="重点关注" placeholder="这个分身重点关注什么">
+          <label class="team-lead"><input type="radio" name="teamLead">主笔</label>
+          <button class="team-remove" type="button" title="移除分身" aria-label="移除分身">×</button>`;
+        const provider = row.querySelector('.team-provider');
+        const name = row.querySelector('.team-name');
+        const role = row.querySelector('.team-role');
+        const focus = row.querySelector('.team-focus');
+        const lead = row.querySelector('input[type="radio"]');
+        const remove = row.querySelector('.team-remove');
+        provider.value = agent.provider;
+        name.value = agent.name;
+        role.value = agent.role;
+        focus.value = agent.focus;
+        lead.value = agent.id;
+        lead.checked = agent.id === teamLeadAgentId;
+        provider.addEventListener('change', () => { agent.provider = provider.value; });
+        name.addEventListener('input', () => { agent.name = name.value; });
+        role.addEventListener('input', () => { agent.role = role.value; });
+        focus.addEventListener('input', () => { agent.focus = focus.value; });
+        lead.addEventListener('change', () => { if (lead.checked) teamLeadAgentId = agent.id; });
+        remove.disabled = teamAgents.length <= 2;
+        remove.addEventListener('click', () => {
+          if (teamAgents.length <= 2) return;
+          teamAgents = teamAgents.filter(item => item.id !== agent.id);
+          if (teamLeadAgentId === agent.id) teamLeadAgentId = teamAgents[0].id;
+          renderTeamBuilder();
+        });
+        rows.appendChild(row);
+      }
+      document.getElementById('teamAddBtn').disabled = teamAgents.length >= 6;
+    }
+
+    function nextTeamProvider() {
+      const counts = { claude: 0, codex: 0, dsh: 0 };
+      for (const agent of teamAgents) counts[agent.provider] = (counts[agent.provider] || 0) + 1;
+      const sorted = Object.entries(counts).sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]));
+      return sorted[0][0];
+    }
+
+    function addTeamAgent() {
+      if (teamAgents.length >= 6) return;
+      const provider = nextTeamProvider();
+      const id = nextTeamAgentId(provider);
+      teamAgents.push({
+        id,
+        provider,
+        name: `协作成员 ${teamAgents.length + 1}`,
+        role: '独立视角成员',
+        focus: '从不同角度检查目标、证据、风险和可执行性'
+      });
+      renderTeamBuilder();
+    }
+
+    function buildTeamPayload() {
+      for (const agent of teamAgents) {
+        if (!agent.name.trim() || !agent.role.trim() || !agent.focus.trim()) {
+          throw new Error('请为每个智能体填写名称、临时角色和重点关注');
+        }
+      }
+      return {
+        version: 1,
+        agents: teamAgents.map(agent => ({ ...agent, name: agent.name.trim(), role: agent.role.trim(), focus: agent.focus.trim() })),
+        leadAgentId: teamLeadAgentId,
+        consensusPolicy: document.getElementById('consensusPolicy').value,
+        dialogueRounds: Number(document.getElementById('dialogueRounds').value)
+      };
+    }
+
+    function loadTeamBuilder(team) {
+      if (!team?.agents || team.agents.length < 2) return;
+      teamAgents = team.agents.map(agent => ({ ...agent }));
+      teamLeadAgentId = team.leadAgentId || teamAgents[0].id;
+      document.getElementById('consensusPolicy').value = team.consensusPolicy || 'user_decides';
+      document.getElementById('dialogueRounds').value = String(team.dialogueRounds || 2);
+      renderTeamBuilder();
+    }
+
+    async function suggestTeamFromGoal() {
+      const goal = inputBox.value.trim();
+      const button = document.getElementById('teamSuggestBtn');
+      const status = document.getElementById('teamSuggestStatus');
+      if (!goal) {
+        status.textContent = '请先在下方写清任务目标，再让 AI 按目标建议团队。';
+        inputBox.focus();
+        return;
+      }
+      button.disabled = true;
+      button.textContent = '⏳ 正在建议…';
+      status.textContent = '组队顾问正在阅读目标并设计临时分工；结果出来后仍由你修改确认。';
+      try {
+        const resp = await apiFetch('/api/team/suggest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            goal,
+            mode: collabMode,
+            plannerProvider: document.getElementById('teamPlannerProvider').value,
+            desiredCount: teamAgents.length
+          })
+        });
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok) throw new Error(getErrorMessage(data, 'AI 组队建议失败'));
+        loadTeamBuilder(data.team);
+        status.textContent = `建议理由：${data.summary}（请检查并按你的判断修改）`;
+      } catch (error) {
+        status.textContent = `⚠️ ${error.message}`;
+      } finally {
+        button.disabled = false;
+        button.textContent = '✨ AI 建议团队';
+      }
+    }
+
+    // 更新顶部状态栏 + 侧边栏忙碌指示器
+    function updateGlobalStatus() {
+      const count = busySessions.size;
+      document.getElementById('statusText').textContent = count === 0 ? '就绪' : count + ' 个任务进行中';
+      document.querySelectorAll('.session-item').forEach(item => {
+        item.classList.toggle('busy', busySessions.has(item.dataset.id));
+      });
+    }
+
+    // ============================================================
+    //  消息渲染
+    // ============================================================
+    // 悬停工具条：所有消息可复制原文；用户自己的消息额外提供“编辑”（放回输入框重发）。
+    // getCopyText 用函数而不是字符串：流式消息的文本会持续增长，复制时要取当下内容。
+    function buildMessageActions(text, { editable = false, getCopyText = null } = {}) {
+      const bar = document.createElement('div');
+      bar.className = 'msg-actions';
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'msg-action-btn';
+      copyBtn.textContent = '📋 复制';
+      copyBtn.addEventListener('click', () => {
+        const value = getCopyText ? String(getCopyText() || '') : String(text || '');
+        navigator.clipboard.writeText(value).then(() => {
+          copyBtn.textContent = '✅ 已复制';
+          setTimeout(() => { copyBtn.textContent = '📋 复制'; }, 2000);
+        }).catch(() => {
+          copyBtn.textContent = '❌ 失败';
+          setTimeout(() => { copyBtn.textContent = '📋 复制'; }, 2000);
+        });
+      });
+      bar.appendChild(copyBtn);
+      if (editable && text) {
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'msg-action-btn';
+        editBtn.textContent = '✏️ 编辑';
+        editBtn.addEventListener('click', () => {
+          // 只把原文放回输入框，历史记录保持不变；改完作为一条新消息发送。
+          inputBox.value = text;
+          inputBox.style.height = 'auto';
+          inputBox.style.height = Math.min(inputBox.scrollHeight, 160) + 'px';
+          updateSendBtn();
+          inputBox.focus();
+          inputBox.setSelectionRange(text.length, text.length);
+        });
+        bar.appendChild(editBtn);
+      }
+      return bar;
+    }
+
+    function addMessage(role, text, agent, attachments = []) {
+      const msg = document.createElement('div');
+      msg.className = 'msg ' + role;
+      if (agent) msg.classList.add(agent);
+      const avatar = avatarIconFor(agent);
+      const content = role === 'ai' ? renderMarkdown(text) : escapeHtml(text);
+      const column = document.createElement('div');
+      column.className = 'msg-column';
+      column.innerHTML = `<div class="bubble">${content}</div>`;
+      column.appendChild(buildMessageActions(text, { editable: role === 'user' }));
+      msg.innerHTML = `<div class="avatar">${avatar}</div>`;
+      msg.appendChild(column);
+      if (attachments.length) {
+        const strip = document.createElement('div');
+        strip.className = 'attachment-strip show';
+        attachments.forEach((attachment) => {
+          const chip = document.createElement('div'); chip.className = 'attachment-chip';
+          if (attachment.data || attachment.url) {
+            const image = document.createElement('img'); image.src = attachment.data || attachment.url; image.alt = attachment.name || '图片'; chip.appendChild(image);
+          }
+          const label = document.createElement('span'); label.textContent = attachment.name || '图片'; chip.appendChild(label); strip.appendChild(chip);
+        });
+        msg.querySelector('.bubble').prepend(strip);
+      }
+      if (role === 'ai') enhanceCodeBlocks(msg);
+      chatArea.appendChild(msg);
+      scrollToBottom();
+      return msg;
+    }
+
+    function addStatusMessage(text) {
+      const msg = document.createElement('div');
+      msg.className = 'msg system';
+      msg.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
+      chatArea.appendChild(msg);
+      scrollToBottom();
+    }
+
+    function addCollabMessage(agent, role, text, instanceName) {
+      const safeAgent = (agent === 'claude' || agent === 'codex' || agent === 'dsh') ? agent : 'claude';
+      const avatarIcon = avatarIconFor(safeAgent);
+      const msg = document.createElement('div');
+      msg.className = 'collab-msg';
+      msg.innerHTML = `
+        <div class="collab-avatar ${safeAgent}">${avatarIcon}</div>
+        <div class="collab-body">
+          <div class="collab-header">
+            <span class="collab-name">${escapeHtml(instanceName || providerDisplayName(safeAgent))}</span>
+            <span class="collab-role-tag ${safeAgent}">${escapeHtml(role)}</span>
+          </div>
+          <div class="collab-text">${renderMarkdown(text)}</div>
+        </div>`;
+      msg.querySelector('.collab-body').appendChild(buildMessageActions(text, {
+        getCopyText: () => msg.querySelector('.collab-text')?.textContent || ''
+      }));
+      enhanceCodeBlocks(msg);
+      chatArea.appendChild(msg);
+      scrollToBottom();
+      return msg;
+    }
+
+    function addRoundDivider(text) { const d = document.createElement('div'); d.className = 'round-divider'; d.textContent = text; chatArea.appendChild(d); scrollToBottom(); }
+    function addGoalCard(text) { const c = document.createElement('div'); c.className = 'goal-card'; c.innerHTML = `<div class="goal-card-label">🎯 任务目标</div><div class="goal-card-text">${escapeHtml(text)}</div>`; chatArea.appendChild(c); scrollToBottom(); }
+
+    function showThinker(agent, role, instanceName) {
+      removeThinker();
+      const icon = avatarIconFor(agent);
+      const name = instanceName || providerDisplayName(agent);
+      const t = document.createElement('div');
+      t.className = 'thinker'; t.id = 'thinker';
+      t.innerHTML = `<div class="thinker-avatar ${agent}">${icon}</div><div class="thinker-dots"><span></span><span></span><span></span></div><span class="thinker-label">${escapeHtml(name)}（${escapeHtml(role)}）思考中…</span>`;
+      chatArea.appendChild(t);
+      scrollToBottom();
+    }
+    function removeThinker() { const t = document.getElementById('thinker'); if (t) t.remove(); }
+
+    function providerDisplayName(agent) {
+      return agent === 'claude' ? 'Claude Code' : agent === 'codex' ? 'Codex' : 'DeepSeek (dsh)';
+    }
+
+    function selectedProviderList() {
+      return CHAT_PROVIDER_ORDER.filter(provider => selectedChatProviders.has(provider));
+    }
+
+    function renderChatProviderSelection() {
+      for (const button of document.querySelectorAll('.agent-btn[data-agent]')) {
+        if (button.dataset.agent === 'all') continue;
+        const active = selectedChatProviders.has(button.dataset.agent);
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      }
+      const selectable = CHAT_PROVIDER_ORDER.filter(provider => availableChatProviders.has(provider));
+      const allSelected = selectable.length > 0 && selectable.every(provider => selectedChatProviders.has(provider));
+      const allButton = document.querySelector('.agent-btn[data-agent="all"]');
+      allButton.classList.toggle('active', allSelected);
+      allButton.setAttribute('aria-pressed', allSelected ? 'true' : 'false');
+      allButton.disabled = selectable.length === 0;
+      document.getElementById('dualStrategyControl').classList.toggle('show', appMode === 'chat' && selectedChatProviders.size >= 2);
+    }
+
+    function avatarIconFor(agent) {
+      return agent === 'claude' ? '✦' : agent === 'codex' ? '◈' : '◆';
+    }
+
+    function showChatProgress(participants, strategy) {
+      removeThinker();
+      document.getElementById('chatProgress')?.remove();
+      const panel = document.createElement('div');
+      panel.className = 'chat-progress';
+      panel.id = 'chatProgress';
+      const method = strategy === 'cross_check' ? '独立回答 → 互相确认' : '独立并行回答';
+      panel.innerHTML = `<div class="chat-progress-title">团队进行中：${escapeHtml(method)}</div>` + participants.map((participant) => `
+        <div class="chat-progress-row" data-agent="${escapeHtml(participant.agent)}" data-status="running">
+          <span class="chat-progress-agent">${escapeHtml(providerDisplayName(participant.agent))}</span>
+          <span class="chat-progress-status">正在形成独立意见…</span>
+        </div>`).join('');
+      chatArea.appendChild(panel);
+      scrollToBottom();
+    }
+
+    function updateChatProgress(agent, status, text) {
+      const row = document.querySelector(`#chatProgress .chat-progress-row[data-agent="${agent}"]`);
+      if (!row) return;
+      row.dataset.status = status;
+      row.querySelector('.chat-progress-status').textContent = text;
+      scrollToBottom();
+    }
+
+    function removeChatProgress() { document.getElementById('chatProgress')?.remove(); }
+
+    function reliabilityHtml(reliability) {
+      if (!reliability) return '';
+      const reached = reliability.machineConsensusReached === true || reliability.approved === true;
+      return `<div class="reliability-card">
+        <div class="reliability-title">${reached ? '✅ 团队达到所选共识' : '⚠️ 团队仍有分歧，请你最终决定'}</div>
+        <div class="reliability-grid">
+          <div class="reliability-item"><div class="reliability-value">${Number(reliability.approvedCount || 0)}/${Number(reliability.reviewerCount || 0)}</div><div class="reliability-label">确认人数</div></div>
+          <div class="reliability-item"><div class="reliability-value">${Number(reliability.issueCount || reliability.blockingIssueCount || 0)}</div><div class="reliability-label">争议问题</div></div>
+          <div class="reliability-item"><div class="reliability-value">${Number(reliability.unsupportedClaimCount || 0)}</div><div class="reliability-label">缺失证据</div></div>
+        </div>
+      </div>`;
+    }
+
+    function verificationPlanHtml(plan) {
+      if (!plan) return '<div class="reliability-card"><strong>⚠️ 系统检查：</strong>旧任务没有保存检查计划，本次只能进行 AI 复核。</div>';
+      if (!plan.required || !Array.isArray(plan.commands) || plan.commands.length === 0) {
+        const reason = plan.reason === 'WORKSPACE_NOT_BOUND' ? '批准方案时尚未绑定工作区' : '项目没有配置 check/test 脚本';
+        return `<div class="reliability-card"><strong>⚠️ 系统检查未配置：</strong>${escapeHtml(reason)}。本次不会把 AI 的验证报告表述为真实命令已通过。</div>`;
+      }
+      return `<div class="reliability-card"><strong>🧪 批准后将实际执行：</strong><br>${plan.commands.map(command => `
+        <div style="margin-top:8px"><code>${escapeHtml(command.displayCommand)}</code><br><small>脚本原文：<code>${escapeHtml(command.script)}</code></small></div>`).join('')}
+        <small>这些脚本内容已绑定检查计划指纹；AI 修改脚本后，系统会拒绝执行被替换的命令。</small></div>`;
+    }
+
+    function deterministicVerificationHtml(verification) {
+      const result = verification?.deterministic;
+      if (!result || !result.required) {
+        return '<div class="reliability-card"><strong>⚠️ 证据等级：仅 AI 复核</strong><br><small>没有系统命令退出码，不能证明自动化检查真实通过。</small></div>';
+      }
+      const commands = Array.isArray(result.commands) ? result.commands : [];
+      return `<div class="reliability-card"><strong>${result.passed ? '✅' : '❌'} 系统检查${result.passed ? '全部通过' : '未通过'}</strong>
+        ${commands.map(command => `<details style="margin-top:8px"><summary><code>${escapeHtml(command.displayCommand || command.id)}</code> · ${escapeHtml(command.status)} · 退出码 ${command.exitCode === null ? '无' : Number(command.exitCode)} · ${Number(command.durationMs || 0)}ms</summary><pre style="white-space:pre-wrap;max-height:220px;overflow:auto">${escapeHtml(command.output || '没有输出')}</pre></details>`).join('')}
+        ${result.error ? `<br><small>${escapeHtml(result.error.message || result.error.code)}</small>` : ''}</div>`;
+    }
+
+    function showGateCard(plan, sessionId, mode, reliability, approval = {}) {
+      document.getElementById('gateCard')?.remove();
+      const c = document.createElement('div');
+      c.className = 'gate-card'; c.id = 'gateCard';
+      c.innerHTML = `
+        <div class="gate-title">🔐 方案审查闸门</div>
+        ${reliabilityHtml(reliability)}
+        <div class="reliability-card"><strong>正式工作区：</strong>${currentWorkspacePath ? escapeHtml(currentWorkspacePath) : '尚未绑定。请先在下方使用 cd /路径。'}<br><small>本次批准只允许在独立 Git worktree 中实施和验证；正式目录不会立刻变化。验证通过后，你还需要再次批准交付。</small></div>
+        ${verificationPlanHtml(approval.deterministicVerificationPlan)}
+        <div class="gate-plan">${renderMarkdown(plan)}</div>
+        <div class="gate-actions">
+          <button class="gate-btn confirm" id="gateConfirm">${reliability?.requiresUserDecision ? '⚠️ 我了解分歧，仍继续' : '✅ 确认执行'}</button>
+          <button class="gate-btn modify" id="gateModify">✏️ 修改目标</button>
+          <button class="gate-btn cancel" id="gateCancel">❌ 取消</button>
+        </div>`;
+      enhanceCodeBlocks(c);
+      chatArea.appendChild(c);
+      scrollToBottom();
+      document.getElementById('gateConfirm').addEventListener('click', () => {
+        if (!currentWorkspacePath) { addStatusMessage('⚠️ 请先使用 cd /完整/路径 绑定工作目录，再批准实际执行。'); return; }
+        const { deterministicVerificationPlan, ...executionApproval } = approval;
+        c.remove(); pendingGates.delete(sessionId); startExecution(sessionId, Boolean(reliability?.requiresUserDecision), executionApproval);
+      });
+      document.getElementById('gateModify').addEventListener('click', () => cancelPendingJob(sessionId, '⏸️ 已暂停。你可以修改目标后重新发起协作。'));
+      document.getElementById('gateCancel').addEventListener('click', () => cancelPendingJob(sessionId, '❌ 协作已取消。'));
+    }
+
+    function showDeliveryGate(sessionId, sourceRoot, evidence, { deliverable = true, jobId = null, executionRunId = null, workspaceHandleId = null, baseRevision = null, verification = null } = {}) {
+      document.getElementById('deliveryGate')?.remove();
+      const files = Array.isArray(evidence?.changedFiles) ? evidence.changedFiles : [];
+      const card = document.createElement('div');
+      card.className = 'gate-card';
+      card.id = 'deliveryGate';
+      card.innerHTML = `
+        <div class="gate-title">${deliverable ? '📦 隔离产物等待交付' : '🧹 隔离产物等待处理'}</div>
+        <div class="reliability-card"><strong>正式工作区仍未修改：</strong>${escapeHtml(sourceRoot || '未知目录')}<br><small>${deliverable ? '候选修改已在独立 worktree 中完成。只有点击“交付”后，下面的差异才会套用到正式目录。' : '本次实施或验证没有通过，因此不能交付；你可以保留目录排查，或在这里明确丢弃。'}</small></div>
+        ${deterministicVerificationHtml(verification)}
+        <div class="reliability-card"><strong>${Number(evidence?.changedCount || files.length)} 个文件变化</strong><br>${files.slice(0, 30).map(file => `${escapeHtml(file.status || 'M')}　${escapeHtml(file.path || '')}`).join('<br>') || '没有可显示的文件清单'}${files.length > 30 ? '<br>…其余文件已折叠' : ''}<br><small>补丁指纹：${escapeHtml(evidence?.patchHash || '未知')}</small></div>
+        <div class="gate-actions">
+          ${deliverable ? '<button class="gate-btn confirm" id="deliveryConfirm">✅ 交付到正式工作区</button>' : ''}
+          <button class="gate-btn cancel" id="deliveryDiscard">🗑 丢弃隔离产物</button>
+        </div>`;
+      chatArea.appendChild(card);
+      scrollToBottom();
+      const identity = { jobId, executionRunId, workspaceHandleId, expectedPatchHash: evidence?.patchHash || null, expectedBaseRevision: baseRevision };
+      card.querySelector('#deliveryConfirm')?.addEventListener('click', () => decideDelivery(sessionId, 'deliver', identity));
+      card.querySelector('#deliveryDiscard').addEventListener('click', () => {
+        if (window.confirm('确定丢弃这次隔离修改？丢弃后不能从工作台恢复。')) decideDelivery(sessionId, 'discard', identity);
+      });
+    }
+
+    async function decideDelivery(sessionId, action, identity) {
+      const card = document.getElementById('deliveryGate');
+      card?.querySelectorAll('button').forEach(button => { button.disabled = true; });
+      try {
+        const response = await apiFetch('/api/collaborate/deliver', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, action, ...identity })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(getErrorMessage(data, '隔离产物处理失败'));
+        card?.remove();
+        if (action === 'deliver') {
+          addCompleteCard();
+          addStatusMessage('✅ 隔离产物已经安全交付到正式工作区；工作台没有自动提交 Git 或部署。');
+        } else {
+          addStatusMessage('🗑 隔离产物已丢弃，正式工作区没有被修改。');
+        }
+        await loadSessionList();
+      } catch (error) {
+        addStatusMessage('⚠️ ' + error.message);
+        card?.querySelectorAll('button').forEach(button => { button.disabled = false; });
+      }
+    }
+
+    async function cancelPendingJob(sessionId, message) {
+      const card = document.getElementById('gateCard');
+      try {
+        const resp = await apiFetch('/api/collaborate/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId })
+        });
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok) throw new Error(getErrorMessage(data, '当前方案不能取消'));
+        card?.remove();
+        pendingGates.delete(sessionId);
+        if (sessionId === currentSessionId) addStatusMessage(message);
+        loadSessionList().catch(() => {});
+      } catch (error) {
+        if (sessionId === currentSessionId) addStatusMessage('⚠️ ' + error.message);
+      }
+    }
+
+    function addCompleteCard() { const c = document.createElement('div'); c.className = 'complete-card'; c.innerHTML = `<div class="icon">✅</div><div class="text">任务完成！</div>`; chatArea.appendChild(c); scrollToBottom(); }
+
+    function showPlanReadyCard(discussionPlan, sourceSessionId) {
+      document.getElementById('planReadyCard')?.remove();
+      const card = document.createElement('div');
+      card.className = 'plan-ready-card';
+      card.id = 'planReadyCard';
+      card.innerHTML = `<h3>✅ 已形成可导入方案</h3><div class="gate-plan">${renderMarkdown(discussionPlan.plan)}</div><div class="plan-ready-actions"><button type="button">导入协作并准备实施 →</button></div>`;
+      enhanceCodeBlocks(card);
+      card.querySelector('button').addEventListener('click', () => importDiscussionPlan(sourceSessionId));
+      chatArea.appendChild(card);
+      scrollToBottom();
+    }
+
+    async function importDiscussionPlan(sourceSessionId) {
+      try {
+        const resp = await apiFetch('/api/discuss/import', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceSessionId })
+        });
+        const session = await resp.json().catch(() => null);
+        if (!resp.ok) throw new Error(getErrorMessage(session, '方案导入失败'));
+        currentSessionId = null;
+        await loadSessionList();
+        await switchSession(session.id);
+        addStatusMessage(session.workspace?.path ? '📥 方案已在当前任务内转入协作；聊天记录和工作目录均已保留。' : '📥 方案已在当前任务内转入协作；聊天记录已保留，请先绑定工作目录。');
+      } catch (error) { addStatusMessage('⚠️ ' + error.message); }
+    }
+
+    // ============================================================
+    //  任务管理 —— 切换/新建不再被阻塞
+    // ============================================================
+    async function loadSessionList() {
+      const resp = await apiFetch('/api/sessions');
+      if (!resp.ok) throw new Error('无法加载任务列表');
+      const sessions = await resp.json();
+      sessionList.innerHTML = '';
+      if (sessions.length === 0) {
+        sessionList.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px;">暂无任务<br>点击上方按钮新建</div>';
+        return sessions;
+      }
+      for (const s of sessions) {
+        if (['queued', 'running', 'executing', 'interrupted'].includes(s.jobState)) busySessions.add(s.id);
+        const item = document.createElement('div');
+        item.className = 'session-item' + (s.id === currentSessionId ? ' active' : '') + (busySessions.has(s.id) ? ' busy' : '');
+        item.dataset.id = s.id;
+        item.setAttribute('role', 'button');
+        item.tabIndex = 0;
+        const icon = s.type === 'collab' ? '🤝' : s.type === 'discussion' ? '🧭' : '💬';
+        const stateLabel = s.jobState === 'plan_ready' ? '方案就绪' : s.jobState === 'waiting_approval' ? '待确认' : s.jobState === 'waiting_delivery' ? '待交付' : s.jobState === 'running' || s.jobState === 'executing' ? '进行中' : s.jobState === 'needs_revision' ? '待修订' : s.jobState === 'partial' ? '部分完成' : s.jobState === 'failed' ? '失败' : s.jobState === 'succeeded' ? '已完成' : '';
+        item.innerHTML = `
+          <div class="session-icon">${icon}</div>
+          <div class="session-info">
+            <div class="session-name">${escapeHtml(s.name)}</div>
+            <div class="session-meta">${stateLabel ? escapeHtml(stateLabel) + ' · ' : ''}${s.agentCount ? s.agentCount + '个分身 · ' : ''}${s.messageCount}条 · ${formatTime(s.updatedAt)}</div>
+          </div>
+          <button class="session-delete" title="永久删除任务" aria-label="永久删除任务">🗑</button>`;
+        item.addEventListener('click', (e) => { if (!e.target.classList.contains('session-delete')) switchSession(s.id); });
+        item.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === item) { e.preventDefault(); switchSession(s.id); } });
+        item.querySelector('.session-delete').addEventListener('click', (e) => { e.stopPropagation(); deleteSessionById(s.id); });
+        sessionList.appendChild(item);
+      }
+      return sessions;
+    }
+
+    async function createNewSession() {
+      const resp = await apiFetch('/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '新任务', type: appMode, collabMode }) });
+      const session = await resp.json();
+      if (!resp.ok) throw new Error(getErrorMessage(session, '无法创建任务'));
+      removeThinker();
+      currentSessionId = session.id;
+      updateWorkspaceDisplay(session.workspace?.path || null);
+      renderSession(session);
+      traceEntries.set(session.id, emptyTraceState());
+      renderTraceSidebar();
+      await loadSessionList();
+      updateGlobalStatus();
+      inputBox.focus();
+      closeSidebar();
+    }
+
+    async function switchSession(sessionId) {
+      if (sessionId === currentSessionId) return;
+      removeThinker();
+      // 必须先拿到任务数据、确认有效后再更新 currentSessionId：
+      // 否则加载失败时界面仍是旧任务，指针却指向新任务，之后发出的消息会写错地方。
+      let resp;
+      try {
+        resp = await apiFetch('/api/sessions/' + sessionId);
+      } catch (error) {
+        addStatusMessage('⚠️ 暂时无法打开这个任务（仍停留在当前任务）：' + error.message);
+        return;
+      }
+      if (!resp.ok) { addStatusMessage('⚠️ 无法打开这个任务'); return; }
+      const session = await resp.json().catch(() => null);
+      if (!session || !session.id) { addStatusMessage('⚠️ 任务数据无效，已取消切换'); return; }
+      currentSessionId = sessionId;
+      setAppMode(session.lastMode || session.type, false);
+      const savedProviders = Array.isArray(session.job?.agents) && session.job.agents.length
+        ? session.job.agents
+        : session.job?.agent === 'all' ? CHAT_PROVIDER_ORDER
+          : session.job?.agent ? [session.job.agent] : null;
+      if (savedProviders) {
+        selectedChatProviders = new Set(savedProviders.filter(provider => availableChatProviders.has(provider)));
+        if (selectedChatProviders.size === 0 && availableChatProviders.size > 0) {
+          selectedChatProviders.add(CHAT_PROVIDER_ORDER.find(provider => availableChatProviders.has(provider)));
+        }
+        renderChatProviderSelection();
+      }
+      updateWorkspaceDisplay(session.workspace?.path || null);
+      if (session.team) loadTeamBuilder(session.team);
+      renderSession(session);
+      // 切换任务时恢复该任务的轨迹历史；本地已有的实时轨迹先显示，历史到达后覆盖。
+      renderTraceSidebar();
+      loadSessionTraces(sessionId);
+      // 切回来时恢复思考动画
+      if (activeThinkers.has(sessionId)) {
+        const t = activeThinkers.get(sessionId);
+        showThinker(t.agent, t.role, t.instanceName);
+      }
+      // 切回来时恢复待确认的闸门
+      if (session.job?.state === 'waiting_approval' && session.job.plan) {
+        const g = {
+          plan: session.job.plan,
+          mode: session.job.mode || collabSessionModes.get(sessionId) || collabMode,
+          reliability: session.job.reliability || null,
+          approval: {
+            expectedJobId: session.job.id,
+            expectedPlanHash: session.job.planHash,
+            expectedContextDigest: session.job.contextDigest,
+            expectedDeterministicVerificationPlanHash: session.job.deterministicVerificationPlan?.hash || null,
+            deterministicVerificationPlan: session.job.deterministicVerificationPlan || null
+          }
+        };
+        pendingGates.set(sessionId, g);
+        showGateCard(g.plan, sessionId, g.mode, g.reliability, g.approval);
+      }
+      if (session.job?.state === 'waiting_delivery' && session.job.isolationEvidence) {
+        showDeliveryGate(session.id, session.job.executionWorkspace?.sourceRoot || session.workspace?.path, session.job.isolationEvidence, {
+          jobId: session.job.id, executionRunId: session.job.executionRunId, workspaceHandleId: session.job.workspaceHandleId, baseRevision: session.job.executionWorkspace?.baseRevision, verification: session.job.verification || null
+        });
+      }
+      if (['needs_revision', 'failed', 'interrupted'].includes(session.job?.state) && session.job?.workspaceHandleId) {
+        showDeliveryGate(session.id, session.job.executionWorkspace?.sourceRoot || session.workspace?.path, session.job.isolationEvidence || {}, {
+          deliverable: false, jobId: session.job.id, executionRunId: session.job.executionRunId, workspaceHandleId: session.job.workspaceHandleId, baseRevision: session.job.executionWorkspace?.baseRevision, verification: session.job.verification || null
+        });
+      }
+      if (session.discussionPlan) showPlanReadyCard(session.discussionPlan, session.id);
+      resumeSessionRun(session);
+      document.querySelectorAll('.session-item').forEach(item => item.classList.toggle('active', item.dataset.id === sessionId));
+      updateSendBtn();
+      closeSidebar();
+    }
+
+    async function deleteSessionById(id) {
+      if (!window.confirm('永久删除这个任务？将删除任务记录、对话、运行记录、图片/文件夹附件和任务专属隔离产物；不会删除你绑定的工作目录或项目代码。此操作不可恢复。')) return;
+      busySessions.delete(id);
+      activeThinkers.delete(id);
+      pendingGates.delete(id);
+      traceEntries.delete(id);
+      expandedTraceGroups.delete(id);
+      const resp = await apiFetch('/api/sessions/' + id, { method: 'DELETE' });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => null);
+        addStatusMessage('⚠️ ' + getErrorMessage(data, '任务暂时不能删除'));
+        return;
+      }
+      if (id === currentSessionId) { currentSessionId = null; updateWorkspaceDisplay(null); showWelcome(); }
+      await loadSessionList();
+      updateGlobalStatus();
+      addStatusMessage('🗑️ 任务及其临时文件已永久删除；正式工作目录和已批准团队记忆未受影响。');
+    }
+
+    function renderSession(session) {
+      chatArea.innerHTML = '';
+      // 重新渲染会清空 DOM；该任务旧的流式草稿元素已成游离节点，一并清掉，
+      // 避免后续 token 继续追加到页面上看不到的元素上。
+      if (session?.id) clearDraftMessages(session.id);
+      if (!session.messages || session.messages.length === 0) {
+        addStatusMessage(`✨ 任务「${session.name}」已就绪，开始${session.type === 'collab' ? '协作' : '对话'}吧！`);
+        return;
+      }
+      let lastRound = 0, lastChatPhase = null, legacyGoalShown = false;
+      for (const msg of session.messages) {
+        const markedGoal = msg.role === 'user' && ['discussion', 'collab'].includes(msg.interactionMode);
+        const legacyGoal = msg.role === 'user' && !msg.interactionMode && ['discussion', 'collab'].includes(session.type) && !legacyGoalShown;
+        if (markedGoal || legacyGoal) { addGoalCard(msg.text); legacyGoalShown = true; continue; }
+        if (msg.role === 'user') { addMessage('user', msg.text); }
+        else if (msg.role === 'ai') {
+          if (msg.collabRole) {
+            if (msg.round && msg.round !== lastRound) { lastRound = msg.round; addRoundDivider(`第 ${msg.round} 轮`); }
+            addCollabMessage(msg.agent, msg.collabRole, msg.text, msg.instanceName);
+          } else if (msg.chatPhase) {
+            if (msg.chatPhase === 'cross_check' && lastChatPhase !== 'cross_check') addRoundDivider('互相确认轮');
+            lastChatPhase = msg.chatPhase;
+            addCollabMessage(msg.agent, msg.chatPhase === 'cross_check' ? '互相确认' : '独立意见', msg.text, providerDisplayName(msg.agent));
+          } else { addMessage('ai', msg.text, msg.agent); }
+        }
+      }
+      if (session.discussionPlan) showPlanReadyCard(session.discussionPlan, session.id);
+    }
+
+    function showWelcome() {
+      chatArea.innerHTML = `<div class="welcome-screen"><div class="logo">🚀</div><h2>未来已来</h2><p>你的 AI 团队工作台。<br>点击左侧「➕ 新建任务」开始你的第一个项目。<br>Claude Code 和 Codex 在这里等你指挥。</p></div>`;
+    }
+
+    async function ensureSession() { if (!currentSessionId) await createNewSession(); return currentSessionId; }
+
+    function renderAttachments() {
+      attachmentStrip.innerHTML = '';
+      const items = [...pendingAttachments.map((item, index) => ({ ...item, kind: 'image', index })), ...(pendingFolder ? [{ ...pendingFolder, kind: 'folder' }] : [])];
+      attachmentStrip.classList.toggle('show', items.length > 0);
+      items.forEach((item) => {
+        const chip = document.createElement('div'); chip.className = 'attachment-chip';
+        if (item.kind === 'image') { const img = document.createElement('img'); img.src = item.data; img.alt = item.name; chip.appendChild(img); }
+        const label = document.createElement('span');
+        label.textContent = item.kind === 'folder'
+          ? `📚 ${item.name}（${item.fileCount || 0} 个文件，${formatFileBytes(item.totalBytes || 0)}${item.state === 'uploading' ? `，上传 ${item.progress || 0}%` : item.state === 'processing' ? `，后台解析 ${item.parsedFileCount || 0}/${item.fileCount || 0}` : item.state === 'error' ? '，上传中断' : `，${item.parsedFileCount || 0} 个可解析`}）`
+          : item.name;
+        chip.appendChild(label);
+        const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.title = '移除附件';
+        remove.addEventListener('click', async () => {
+          if (item.kind === 'folder') await removePendingFolder();
+          else pendingAttachments.splice(item.index, 1);
+          renderAttachments(); updateSendBtn();
+        });
+        chip.appendChild(remove); attachmentStrip.appendChild(chip);
+      });
+    }
+
+    function formatFileBytes(value) {
+      const bytes = Number(value || 0);
+      if (bytes < 1024) return `${bytes}B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+      return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+    }
+
+    async function removePendingFolder() {
+      const current = pendingFolder;
+      pendingFolder = null;
+      if (!current?.uploadId || !currentSessionId) return;
+      try {
+        const response = await apiFetch(`/api/sessions/${encodeURIComponent(currentSessionId)}/reference-uploads/${encodeURIComponent(current.uploadId)}`, { method: 'DELETE' });
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          throw new Error(getErrorMessage(data, '参考资料未能删除'));
+        }
+      } catch (error) { addStatusMessage('⚠️ ' + error.message); }
+    }
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error(`无法读取图片：${file.name}`));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function waitForReferenceProcessing(sessionId, uploadId) {
+      for (let attempt = 0; attempt < 600; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
+        const response = await apiFetch(`/api/sessions/${encodeURIComponent(sessionId)}/reference-uploads`);
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(getErrorMessage(data, '无法读取资料解析进度'));
+        const current = (data.uploads || []).find((item) => item.uploadId === uploadId);
+        if (!current) throw new Error('这份参考资料已被移除');
+        pendingFolder = { ...pendingFolder, ...current, progress: 100 };
+        renderAttachments();
+        if (current.state === 'complete') return current;
+      }
+      return null;
+    }
+
+    async function addImageFiles(files) {
+      const imageFiles = Array.from(files || []).filter((file) => /^image\/(png|jpeg|webp|gif)$/i.test(file.type));
+      if (imageFiles.length !== Array.from(files || []).length) addStatusMessage('⚠️ 只接受 PNG、JPEG、WEBP 或 GIF 图片。');
+      if (pendingAttachments.length + imageFiles.length > 4) { addStatusMessage('⚠️ 一次最多添加 4 张图片。'); return; }
+      try {
+        for (const file of imageFiles) {
+          if (file.size > 4 * 1024 * 1024) throw new Error(`图片“${file.name}”超过 4MB`);
+          pendingAttachments.push({ name: file.name || '粘贴图片', mimeType: file.type, data: await readFileAsDataUrl(file) });
+        }
+        renderAttachments(); updateSendBtn();
+      } catch (error) { addStatusMessage('⚠️ ' + error.message); }
+    }
+
+    async function addFolderFiles(files) {
+      const list = Array.from(files || []);
+      if (!list.length) return;
+      if (folderUploadInProgress) { addStatusMessage('⚠️ 已有资料正在上传，请稍候。'); return; }
+      if (pendingFolder && pendingFolder.state !== 'error') { addStatusMessage('⚠️ 请先移除输入框里已有的参考资料。'); return; }
+      if (list.length > 500) { addStatusMessage('⚠️ 一个任务最多保存 500 个参考文件。'); return; }
+      const totalBytes = list.reduce((sum, file) => sum + file.size, 0);
+      if (totalBytes > 100 * 1024 * 1024) { addStatusMessage('⚠️ 当前任务选择的参考资料不能超过 100MB。'); return; }
+      const sessionId = await ensureSession();
+      const name = (list[0].webkitRelativePath || list[0].name).split('/')[0] || '参考资料';
+      const manifestFiles = list.map((file) => ({
+        path: file.webkitRelativePath || file.name,
+        size: file.size,
+        mimeType: file.type || '',
+        lastModified: file.lastModified || null
+      }));
+      const keySource = JSON.stringify(manifestFiles.map((file) => [file.path, file.size, file.lastModified]));
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(keySource));
+      const uploadKey = Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+      folderUploadInProgress = true;
+      try {
+        const beginResponse = await apiFetch(`/api/sessions/${encodeURIComponent(sessionId)}/reference-uploads`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, uploadKey, files: manifestFiles })
+        });
+        const begun = await beginResponse.json().catch(() => null);
+        if (!beginResponse.ok) throw new Error(getErrorMessage(begun, '无法开始上传参考资料'));
+        pendingFolder = { uploadId: begun.uploadId, name, fileCount: begun.fileCount, totalBytes, state: begun.state, progress: 0, parsedFileCount: begun.parsedFileCount || 0 };
+        renderAttachments(); updateSendBtn();
+        let uploadedTotal = (begun.files || []).reduce((sum, file) => sum + Number(file.uploadedBytes || 0), 0);
+        for (let index = 0; index < list.length; index += 1) {
+          const file = list[index];
+          let offset = Number(begun.files?.[index]?.uploadedBytes || 0);
+          while (offset < file.size) {
+            const chunk = file.slice(offset, Math.min(file.size, offset + 4 * 1024 * 1024));
+            let response = null;
+            let lastError = null;
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+              try {
+                response = await apiFetch(`/api/sessions/${encodeURIComponent(sessionId)}/reference-uploads/${encodeURIComponent(begun.uploadId)}/files/${index}?offset=${offset}`, {
+                  method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: chunk
+                });
+                if (response.ok) break;
+                const data = await response.json().catch(() => null);
+                lastError = new Error(getErrorMessage(data, '资料分块上传失败'));
+              } catch (error) { lastError = error; }
+              if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+            }
+            if (!response?.ok) throw lastError || new Error('资料分块上传失败');
+            const result = await response.json();
+            const nextOffset = Number(result.uploadedBytes);
+            uploadedTotal += Math.max(0, nextOffset - offset);
+            offset = nextOffset;
+            pendingFolder.progress = totalBytes ? Math.min(99, Math.round(uploadedTotal / totalBytes * 100)) : 99;
+            renderAttachments();
+          }
+        }
+        const completeResponse = await apiFetch(`/api/sessions/${encodeURIComponent(sessionId)}/reference-uploads/${encodeURIComponent(begun.uploadId)}/complete`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+        });
+        let completed = await completeResponse.json().catch(() => null);
+        if (!completeResponse.ok) throw new Error(getErrorMessage(completed, '资料解析失败'));
+        if (completed.state === 'processing') {
+          pendingFolder = { ...pendingFolder, ...completed, state: 'processing', progress: 100 };
+          renderAttachments();
+          addStatusMessage('📚 资料已安全保存，正在后台逐个解析；页面仍可正常使用。');
+          completed = await waitForReferenceProcessing(sessionId, begun.uploadId);
+          if (!completed) {
+            addStatusMessage('⏳ 资料仍在后台解析，稍后重新打开任务即可查看结果。');
+            return;
+          }
+        }
+        pendingFolder = { uploadId: completed.uploadId, name: completed.name, fileCount: completed.fileCount, totalBytes: completed.totalBytes, state: 'complete', progress: 100, parsedFileCount: completed.parsedFileCount, failedFileCount: completed.failedFileCount, unsupportedFileCount: completed.unsupportedFileCount };
+        renderAttachments(); updateSendBtn();
+        const skipped = completed.failedFileCount + completed.unsupportedFileCount;
+        addStatusMessage(`📚 已保存 ${formatFileBytes(completed.totalBytes)}；${completed.parsedFileCount} 个文件可按问题检索${skipped ? `，${skipped} 个文件仅保存未解析` : ''}。`);
+      } catch (error) {
+        if (pendingFolder) pendingFolder.state = 'error';
+        renderAttachments();
+        addStatusMessage('⚠️ 上传已中断：' + error.message + '。重新选择同一文件夹可以续传。');
+      } finally {
+        folderUploadInProgress = false;
+        updateSendBtn();
+      }
+    }
+
+    async function stopCurrentRun() {
+      const sessionId = currentSessionId;
+      const runId = activeRuns.get(sessionId);
+      if (!sessionId || !runId) return;
+      stopBtn.disabled = true;
+      try {
+        const response = await apiFetch('/api/runs/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, runId }) });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(getErrorMessage(data, '当前运行不能终止'));
+        addStatusMessage('⏹ 已终止当前对话/任务。可点击你那条消息下方的「✏️ 编辑」修改后重发。');
+        busySessions.delete(sessionId); activeThinkers.delete(sessionId); activeRuns.delete(sessionId);
+        removeThinker(); removeChatProgress(); updateGlobalStatus(); updateSendBtn(); loadSessionList().catch(() => {});
+      } catch (error) { addStatusMessage('⚠️ ' + error.message); }
+      finally { updateSendBtn(); }
+    }
+
+    function trackActiveRun(sessionId, runId) {
+      if (!sessionId || !runId) return;
+      activeRuns.set(sessionId, runId);
+      if (sessionId === currentSessionId) updateSendBtn();
+    }
+
+    function referenceUsageText(usage) {
+      if (!usage || !usage.fileCount) return '';
+      return `📚 已保存 ${formatFileBytes(usage.totalBytes)}；本轮实际引用 ${usage.referencedFileCount || 0} 个文件、约 ${formatFileBytes(usage.referencedChars || 0)} 文字。`;
+    }
+
+    async function runSlashCommand(raw) {
+      const sessionId = await ensureSession();
+      const name = raw.trim().split(/\s+/)[0].toLowerCase();
+      const destructive = name === '/new' || name === '/clear' || name === '/restore';
+      const confirmation = name === '/restore'
+        ? '确认恢复到指定快照？\n\n工作台会安全停止；下次启动时，当前会话、轨迹和参考资料会被快照内容替换。正式项目文件不会改变。'
+        : '真正清空当前任务？\n\n将删除：对话、轨迹、运行记录、图片、参考资料和任务缓存。\n将保留：已经锁定的工作目录、正式项目文件、已批准的团队记忆。';
+      if (destructive && !window.confirm(confirmation)) return;
+      try {
+        const response = await apiFetch(`/api/sessions/${encodeURIComponent(sessionId)}/commands`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ command: raw, confirmed: destructive })
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(getErrorMessage(data, '命令执行失败'));
+        inputBox.value = '';
+        inputBox.style.height = 'auto';
+        if (name === '/new' || name === '/clear') {
+          pendingAttachments = [];
+          pendingFolder = null;
+          renderAttachments();
+          busySessions.delete(sessionId);
+          activeThinkers.delete(sessionId);
+          activeRuns.delete(sessionId);
+          pendingGates.delete(sessionId);
+          clearDraftMessages(sessionId);
+          traceEntries.set(sessionId, emptyTraceState());
+          expandedTraceGroups.delete(sessionId);
+          const sessionResponse = await apiFetch(`/api/sessions/${encodeURIComponent(sessionId)}`);
+          const session = await sessionResponse.json();
+          updateWorkspaceDisplay(session.workspace?.path || null);
+          renderSession(session);
+          renderTraceSidebar();
+          addStatusMessage('✅ ' + data.text);
+          await loadSessionList();
+        } else {
+          addStatusMessage(`⌨️ ${raw}\n${data.text}`);
+        }
+        updateGlobalStatus(); updateSendBtn();
+      } catch (error) { addStatusMessage('⚠️ ' + error.message); }
+    }
+
+    async function submitCurrentInput() {
+      const text = inputBox.value.trim();
+      if (folderUploadInProgress) { addStatusMessage('⚠️ 请等待参考资料上传与解析完成。'); return; }
+      if (pendingFolder?.state === 'error') { addStatusMessage('⚠️ 参考资料上传已中断，请重新选择同一文件夹续传，或点击 × 删除。'); return; }
+      if (text.startsWith('/')) {
+        if (pendingAttachments.length || pendingFolder) { addStatusMessage('⚠️ 执行命令前请先移除输入框里的附件。'); return; }
+        return runSlashCommand(text);
+      }
+      if (appMode === 'chat') return sendChatMessage();
+      return startCollaboration();
+    }
+
+    // ============================================================
+    //  对话模式 —— 发送后不阻塞，可自由切换任务
+    // ============================================================
+    async function sendChatMessage() {
+      const text = inputBox.value.trim();
+      if (!text && !pendingAttachments.length && !pendingFolder) return;
+      const sessionId = await ensureSession();
+      if (busySessions.has(sessionId)) return; // 同一任务不重复发送
+      const selectedProviders = selectedProviderList();
+      if (selectedProviders.length === 0) {
+        addStatusMessage('⚠️ 请至少选择一个当前可用的 AI。');
+        updateSendBtn();
+        return;
+      }
+
+      const sentAttachments = pendingAttachments.slice();
+      const sentFolder = pendingFolder;
+      addMessage('user', text || '（已添加附件）', null, sentAttachments);
+      inputBox.value = '';
+      pendingAttachments = []; pendingFolder = null; renderAttachments();
+      inputBox.style.height = 'auto';
+
+      // 标记此任务为忙碌
+      busySessions.add(sessionId);
+      const selectedStrategy = selectedProviders.length >= 2 ? dualStrategy : 'independent';
+      activeThinkers.set(sessionId, { agent: selectedProviders[0], role: selectedProviders.length >= 2 ? `${selectedProviders.length} 个 AI 协作中` : '回答中' });
+      updateSendBtn();
+      updateGlobalStatus();
+
+      let acceptedRunId = null;
+      const requestId = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `browser-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      try {
+        const resp = await apiFetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, message: text, attachments: sentAttachments, folder: sentFolder, agents: selectedProviders, coordination: selectedStrategy, requestId })
+        });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => null);
+          throw new Error(getErrorMessage(data, '对话请求失败'));
+        }
+        await consumeSseResponse(resp, (event) => {
+          if (event.runId) {
+            acceptedRunId = event.runId;
+            trackActiveRun(sessionId, event.runId);
+          }
+          handleChatEvent(event, sessionId);
+        });
+      } catch (e) {
+        if (sessionId === currentSessionId) addStatusMessage(acceptedRunId ? '⚠️ 页面连接中断，但后台任务不会被取消，正在尝试恢复：' + e.message : '⚠️ 请求没有成功创建：' + e.message);
+        if (acceptedRunId) connectRunEvents(acceptedRunId, sessionId, runSequences.get(acceptedRunId) || 0);
+      } finally {
+        updateGlobalStatus();
+        if (!acceptedRunId) {
+          busySessions.delete(sessionId);
+          activeThinkers.delete(sessionId);
+          if (sessionId === currentSessionId) { removeThinker(); removeChatProgress(); updateSendBtn(); }
+        } else if (busySessions.has(sessionId)) {
+          // SSE 流正常结束但未收到终态事件 —— 向服务端核实。
+          verifyRunStateAndRecover(acceptedRunId, sessionId);
+        }
+        loadSessionList().catch(() => {});
+      }
+    }
+
+    function handleChatEvent(data, sessionId) {
+      if (data.runId && data.sequence) {
+        const previous = runSequences.get(data.runId) || 0;
+        if (data.sequence <= previous) return;
+        runSequences.set(data.runId, data.sequence);
+        trackActiveRun(sessionId, data.runId);
+      }
+      // 运行终态和轨迹事件来自同一条持久事件流；先更新运行卡片，断线重放时也能恢复准确状态。
+      updateTraceRunState(sessionId, data);
+      const viewing = sessionId === currentSessionId;
+      switch (data.type) {
+        case 'chat_start':
+          if (viewing) {
+            showChatProgress(data.participants, data.strategy);
+            if (data.skippedProviders?.length) {
+              const skipped = data.skippedProviders.map(item => `${providerDisplayName(item.provider)}（${item.reason}）`).join('、');
+              addStatusMessage(`ℹ️ 已跳过不可用成员：${skipped}`);
+            }
+            if (data.contextNodeIds?.length) addStatusMessage(`🧠 本轮引用了 ${data.contextNodeIds.length} 条已批准团队记忆。`);
+            const usageMessage = referenceUsageText(data.referenceUsage);
+            if (usageMessage) addStatusMessage(usageMessage);
+          }
+          break;
+        case 'chat_agent_status':
+          activeThinkers.set(sessionId, { agent: data.agent, role: data.phase === 'cross_check' ? '互相确认中' : '形成独立意见中' });
+          if (viewing) updateChatProgress(data.agent, 'running', data.phase === 'cross_check' ? '正在复核另一位成员的意见…' : '正在形成独立意见…');
+          break;
+        case 'chat_agent_token':
+          if (viewing) {
+            const draftKey = `${sessionId}-${data.agent}-${data.phase}`;
+            let draft = draftMessages.get(draftKey);
+            if (!draft) {
+              draft = addCollabMessage(data.agent, data.phase === 'cross_check' ? '互相确认' : '独立意见', '', providerDisplayName(data.agent));
+              draftMessages.set(draftKey, draft);
+            }
+            const textEl = draft.querySelector('.collab-text');
+            if (textEl) { textEl.textContent += data.token; scrollToBottom(); }
+          }
+          break;
+        case 'chat_agent_message':
+          if (viewing) {
+            const draftKey = `${sessionId}-${data.agent}-${data.phase}`;
+            const draft = draftMessages.get(draftKey);
+            if (draft) { draft.remove(); draftMessages.delete(draftKey); }
+            updateChatProgress(data.agent, 'done', data.phase === 'cross_check' ? '互相确认已完成' : '独立意见已返回');
+            addCollabMessage(data.agent, data.phase === 'cross_check' ? '互相确认' : '独立意见', data.text, providerDisplayName(data.agent));
+          }
+          break;
+        case 'chat_agent_error':
+          if (viewing) {
+            updateChatProgress(data.agent, 'failed', data.message);
+            addStatusMessage(`⚠️ ${providerDisplayName(data.agent)}：${data.message}`);
+          }
+          break;
+        case 'chat_agent_retry':
+          if (viewing) {
+            updateChatProgress(data.agent, 'running', `第 ${Number(data.attempt || 1) + 1} 次尝试中…`);
+            addStatusMessage('↻ ' + data.message);
+          }
+          break;
+        case 'chat_agent_trace':
+          recordTrace(sessionId, data);
+          break;
+        case 'chat_phase':
+          if (viewing) addRoundDivider('互相确认轮');
+          break;
+        case 'chat_phase_skipped':
+          if (viewing) addStatusMessage('⚠️ ' + data.message);
+          break;
+        case 'chat_complete':
+          busySessions.delete(sessionId);
+          activeThinkers.delete(sessionId);
+          activeRuns.delete(sessionId);
+          clearDraftMessages(sessionId);
+          updateGlobalStatus();
+          updateSendBtn();
+          if (viewing) {
+            removeChatProgress();
+            if (data.state === 'partial') addStatusMessage('⚠️ 部分成员未完成，但可用回答已经保留。');
+            else if (data.state === 'failed') addStatusMessage('❌ 所有已选成员本轮都没有成功返回，请查看上方具体原因。');
+            else addStatusMessage('✅ 本轮团队对话已完成。');
+          }
+          break;
+        case 'chat_error':
+          busySessions.delete(sessionId);
+          activeThinkers.delete(sessionId);
+          activeRuns.delete(sessionId);
+          clearDraftMessages(sessionId);
+          updateGlobalStatus();
+          updateSendBtn();
+          if (viewing) { removeChatProgress(); addStatusMessage('❌ ' + data.message); }
+          break;
+      }
+    }
+
+    // ============================================================
+    //  协作模式 —— 讨论在后台持续进行
+    // ============================================================
+    async function startCollaboration() {
+      const text = inputBox.value.trim();
+      if (!text && !pendingAttachments.length && !pendingFolder) return;
+      const sessionId = await ensureSession();
+      if (busySessions.has(sessionId)) return;
+
+      inputBox.value = '';
+      inputBox.style.height = 'auto';
+
+      busySessions.add(sessionId);
+      collabSessionModes.set(sessionId, collabMode);
+      updateSendBtn();
+      updateGlobalStatus();
+
+      const sentAttachments = pendingAttachments.slice(); const sentFolder = pendingFolder;
+      addGoalCard(text || '（已添加附件）');
+      pendingAttachments = []; pendingFolder = null; renderAttachments();
+
+      const gateMode = document.getElementById('gateCheckbox').checked ? 'manual' : 'auto';
+      let acceptedRunId = null;
+      try {
+        const team = buildTeamPayload();
+        const endpoint = appMode === 'discussion' ? '/api/discuss' : '/api/collaborate';
+        const resp = await apiFetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, goal: text, attachments: sentAttachments, folder: sentFolder, mode: collabMode, gateMode, team }) });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => null);
+          throw new Error(getErrorMessage(data, '协作请求失败'));
+        }
+        await consumeSseResponse(resp, (event) => {
+          if (event.runId) { acceptedRunId = event.runId; trackActiveRun(sessionId, event.runId); }
+          handleCollabEvent(event, sessionId);
+        });
+      } catch (e) {
+        if (sessionId === currentSessionId) addStatusMessage(acceptedRunId ? '⚠️ 页面连接中断，协作仍在后台继续，正在恢复事件：' + e.message : '⚠️ 协作没有成功启动：' + e.message);
+        if (acceptedRunId) connectCollaborationEvents(acceptedRunId, sessionId, runSequences.get(acceptedRunId) || 0);
+      } finally {
+        updateGlobalStatus();
+        if (!acceptedRunId) {
+          busySessions.delete(sessionId);
+          activeThinkers.delete(sessionId);
+          if (sessionId === currentSessionId) { removeThinker(); updateSendBtn(); }
+        }
+        loadSessionList().catch(() => {});
+      }
+    }
+
+    function handleCollabEvent(data, sessionId) {
+      if (data.runId && data.sequence) {
+        const previous = runSequences.get(data.runId) || 0;
+        if (data.sequence <= previous) return;
+        runSequences.set(data.runId, data.sequence);
+        trackActiveRun(sessionId, data.runId);
+      }
+      updateTraceRunState(sessionId, data);
+      const viewing = sessionId === currentSessionId;
+      switch (data.type) {
+        case 'start': if (viewing) addStatusMessage(`${data.icon} ${data.mode} 模式启动`); break;
+        case 'reference_context': {
+          const usageMessage = referenceUsageText(data.usage);
+          if (viewing && usageMessage) addStatusMessage(usageMessage);
+          break;
+        }
+        case 'team': if (viewing) addStatusMessage(`👥 本次由 ${data.team.agents.length} 个独立智能体实例参会，主笔是 ${data.team.agents.find(agent => agent.id === data.team.leadAgentId)?.name || data.team.leadAgentId}。`); break;
+        case 'memory':
+          if (viewing) {
+            const loaded = (data.members || []).map((member) => `${member.instanceName} ${member.count}条`).join('，');
+            addStatusMessage(`🧠 应用记忆已加载：${loaded || '暂无历史'}。同一次运行会复用已完成结果；底层临时会话跨轮不保证缓存命中。`);
+          }
+          break;
+        case 'round': if (viewing) { removeThinker(); addRoundDivider(`第 ${data.number} 轮讨论`); } break;
+        case 'thinking':
+          activeThinkers.set(sessionId, { agent: data.agent, role: data.role, instanceName: data.instanceName });
+          if (viewing) { removeThinker(); showThinker(data.agent, data.role, data.instanceName); }
+          break;
+        case 'message':
+          activeThinkers.delete(sessionId);
+          if (viewing) { removeThinker(); addCollabMessage(data.agent, data.role, data.text, data.instanceName); }
+          break;
+        case 'agent_trace':
+          recordTrace(sessionId, data);
+          break;
+        case 'consensus': if (viewing) addStatusMessage(data.reached ? '✅ 团队达到所选共识。' : '⚠️ 团队仍有分歧，系统已完整保留，交给你最终决定。'); break;
+        case 'warning': if (viewing) addStatusMessage('⚠️ ' + data.message); break;
+        case 'context_proposed':
+          if (viewing) { addStatusMessage('🧠 ' + data.message + '；请在“团队记忆”中批准或拒绝。'); if (document.getElementById('contextPanel').classList.contains('show')) loadContextNodes(); }
+          break;
+        case 'orchestration_decision':
+          if (viewing) addStatusMessage(data.action === 'continue' ? '↻ 仍有定向问题或分歧，编排器决定继续一轮。' : data.preserveDisagreement ? '🧭 已到讨论上限，编排器会保留分歧后汇总。' : '🧭 成员均已准备好，开始汇总方案。');
+          break;
+        case 'gate':
+          activeThinkers.delete(sessionId);
+          busySessions.delete(sessionId);
+          activeRuns.delete(sessionId);
+          updateGlobalStatus();
+          updateSendBtn();
+          { const gm = collabSessionModes.get(sessionId) || collabMode;
+            const approval = {
+              expectedJobId: data.jobId || data.runId,
+              expectedPlanHash: data.planHash,
+              expectedContextDigest: data.contextDigest,
+              expectedDeterministicVerificationPlanHash: data.deterministicVerificationPlan?.hash || null,
+              deterministicVerificationPlan: data.deterministicVerificationPlan || null
+            };
+            if (viewing) { removeThinker(); showGateCard(data.plan, sessionId, gm, data.reliability, approval); }
+            else { pendingGates.set(sessionId, { plan: data.plan, mode: gm, reliability: data.reliability || null, approval }); } }
+          break;
+        case 'gate_passed': if (viewing) addStatusMessage('闸门自动通过，开始执行…'); break;
+        case 'plan_ready':
+          activeThinkers.delete(sessionId); busySessions.delete(sessionId); activeRuns.delete(sessionId); updateGlobalStatus(); updateSendBtn();
+          if (viewing) { removeThinker(); showPlanReadyCard(data.discussionPlan, sessionId); addStatusMessage('方案已持久化，可直接导入协作实施。'); }
+          break;
+        case 'execution_start': if (viewing) { removeThinker(); addStatusMessage('🔨 开始执行阶段'); } break;
+        case 'execution_message':
+          activeThinkers.delete(sessionId);
+          if (viewing) { removeThinker(); addCollabMessage(data.agent, data.role || '执行者', data.text, data.instanceName); }
+          break;
+        case 'verification':
+          if (viewing) addStatusMessage(data.passed ? '✅ 独立验证通过，可以进入最终交付确认。' : '⚠️ 独立验证未通过，任务将进入待修订状态。');
+          break;
+        case 'workspace_changes':
+          if (viewing) addStatusMessage(data.changes?.changedCount > 0 ? `🗂️ 服务端检测到 ${data.changes.changedCount} 个文件发生变化。` : '⚠️ 服务端没有检测到工作区文件变化。');
+          break;
+        case 'deterministic_verification':
+          if (viewing) {
+            if (!data.required) addStatusMessage('⚠️ 项目没有已批准的系统检查，本轮只有 AI 复核。');
+            else addStatusMessage(data.passed ? '✅ 系统实际执行的检查全部通过。' : '❌ 系统实际执行的检查未通过，AI 的 pass 不能覆盖真实退出码。');
+          }
+          break;
+        case 'delivery_gate':
+          activeThinkers.delete(sessionId); busySessions.delete(sessionId); activeRuns.delete(sessionId); updateGlobalStatus(); updateSendBtn();
+          if (viewing) { removeThinker(); showDeliveryGate(sessionId, data.sourceRoot, data.evidence, { jobId: data.jobId, executionRunId: data.executionRunId || data.runId, workspaceHandleId: data.handleId, baseRevision: data.baseRevision, verification: data.verification || null }); addStatusMessage('🔐 正式工作区尚未改变，等待你最终批准交付。'); }
+          break;
+        case 'complete':
+          activeThinkers.delete(sessionId);
+          busySessions.delete(sessionId);
+          activeRuns.delete(sessionId);
+          updateGlobalStatus();
+          updateSendBtn();
+          if (viewing) { removeThinker(); addCompleteCard(); addStatusMessage('候选修改已经通过当前配置的检查与复核。'); }
+          break;
+        case 'error':
+          activeThinkers.delete(sessionId);
+          busySessions.delete(sessionId);
+          activeRuns.delete(sessionId);
+          updateGlobalStatus();
+          updateSendBtn();
+          if (viewing) {
+            removeThinker();
+            addStatusMessage('❌ ' + data.message);
+            apiFetch('/api/sessions/' + sessionId).then(response => response.ok ? response.json() : null).then(session => {
+              if (session?.job?.workspaceHandleId && ['needs_revision', 'failed', 'interrupted'].includes(session.job.state)) {
+                showDeliveryGate(sessionId, session.job.executionWorkspace?.sourceRoot || session.workspace?.path, session.job.isolationEvidence || {}, {
+                  deliverable: false, jobId: session.job.id, executionRunId: session.job.executionRunId, workspaceHandleId: session.job.workspaceHandleId, baseRevision: session.job.executionWorkspace?.baseRevision, verification: session.job.verification || null
+                });
+              }
+            }).catch(() => {});
+          }
+          break;
+      }
+    }
+
+    async function startExecution(sessionId, acknowledgeDisagreement = false, approval = {}) {
+      busySessions.add(sessionId);
+      updateGlobalStatus();
+      let acceptedRunId = null;
+      try {
+        const resp = await apiFetch('/api/collaborate/execute', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, acknowledgeDisagreement, ...approval }) });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => null);
+          throw new Error(getErrorMessage(data, '无法进入执行阶段'));
+        }
+        await consumeSseResponse(resp, (event) => {
+          if (event.runId) { acceptedRunId = event.runId; trackActiveRun(sessionId, event.runId); }
+          handleCollabEvent(event, sessionId);
+        });
+      } catch (e) {
+        if (sessionId === currentSessionId) addStatusMessage(acceptedRunId ? '⚠️ 页面连接中断，隔离执行仍在后台继续：' + e.message : '⚠️ 无法开始隔离执行：' + e.message);
+        if (acceptedRunId) connectCollaborationEvents(acceptedRunId, sessionId, runSequences.get(acceptedRunId) || 0);
+      } finally {
+        updateGlobalStatus();
+        if (!acceptedRunId) {
+          busySessions.delete(sessionId);
+          activeThinkers.delete(sessionId);
+          if (sessionId === currentSessionId) { removeThinker(); updateSendBtn(); }
+        }
+        loadSessionList().catch(() => {});
+      }
+    }
+
+    // ============================================================
+    //  UI 更新
+    // ============================================================
+    function updateSendBtn() {
+      const hasText = inputBox.value.trim().length > 0 || pendingAttachments.length > 0 || pendingFolder?.state === 'complete';
+      const hasChatProvider = appMode !== 'chat' || selectedChatProviders.size > 0;
+      const currentBusy = busySessions.has(currentSessionId);
+      const hasActiveRun = Boolean(activeRuns.get(currentSessionId));
+      sendBtn.disabled = !hasText || !hasChatProvider || currentBusy || folderUploadInProgress;
+      sendBtn.textContent = folderUploadInProgress ? '📚 上传中…' : currentBusy ? '⏳ 进行中…' : appMode === 'collab' ? '开始协作' : appMode === 'discussion' ? '开始讨论' : '发送';
+      stopBtn.classList.toggle('show', currentBusy);
+      stopBtn.disabled = currentBusy && !hasActiveRun;
+      document.getElementById('imageBtn').disabled = currentBusy;
+      document.getElementById('folderBtn').disabled = currentBusy || folderUploadInProgress;
+    }
+
+    function updateModeUI() {
+      const isChat = appMode === 'chat';
+      document.getElementById('agentSelector').style.display = isChat ? 'flex' : 'none';
+      renderChatProviderSelection();
+      document.getElementById('collabControls').classList.toggle('show', !isChat);
+      document.getElementById('teamBuilder').classList.toggle('show', !isChat);
+      inputBox.placeholder = isChat ? '输入你的想法；输入 /help 查看命令（Shift+Enter 发送）' : appMode === 'discussion' ? '描述要讨论的问题；输入 /help 查看命令（Shift+Enter 发送）' : '描述任务目标；输入 /help 查看命令（Shift+Enter 发送）';
+      updateSendBtn();
+    }
+
+    // ============================================================
+    //  事件绑定 —— 不再阻止切换
+    // ============================================================
+    document.querySelectorAll('.app-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => setAppMode(btn.dataset.appmode));
+    });
+    document.querySelectorAll('.agent-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const provider = btn.dataset.agent;
+        if (provider === 'all') {
+          selectedChatProviders = new Set(CHAT_PROVIDER_ORDER.filter(item => availableChatProviders.has(item)));
+        } else if (selectedChatProviders.has(provider)) {
+          if (selectedChatProviders.size === 1) {
+            addStatusMessage('ℹ️ 至少保留一个对话对象。');
+            return;
+          }
+          selectedChatProviders.delete(provider);
+        } else if (availableChatProviders.has(provider)) {
+          selectedChatProviders.add(provider);
+        }
+        renderChatProviderSelection();
+        updateSendBtn();
+      });
+    });
+    document.getElementById('dualStrategy').addEventListener('change', (event) => { dualStrategy = event.target.value; });
+    document.querySelectorAll('.collab-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => { collabMode = btn.dataset.mode; document.querySelectorAll('.collab-mode-btn').forEach(b => b.classList.toggle('active', b === btn)); });
+    });
+    document.getElementById('teamAddBtn').addEventListener('click', addTeamAgent);
+    document.getElementById('teamSuggestBtn').addEventListener('click', suggestTeamFromGoal);
+    document.getElementById('workspaceRun').addEventListener('click', submitWorkspaceCommand);
+    controlsToggle.addEventListener('click', () => setControlsCollapsed(!controlsPanel.classList.contains('collapsed')));
+    document.getElementById('workspaceCommand').addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); submitWorkspaceCommand(); } });
+    document.getElementById('imageBtn').addEventListener('click', () => document.getElementById('imageInput').click());
+    document.getElementById('folderBtn').addEventListener('click', () => document.getElementById('folderInput').click());
+    document.getElementById('imageInput').addEventListener('change', (event) => { addImageFiles(event.target.files); event.target.value = ''; });
+    document.getElementById('folderInput').addEventListener('change', (event) => { addFolderFiles(event.target.files); event.target.value = ''; });
+    stopBtn.addEventListener('click', stopCurrentRun);
+    inputBox.addEventListener('paste', (event) => {
+      const images = Array.from(event.clipboardData?.items || []).filter((item) => item.kind === 'file' && item.type.startsWith('image/')).map((item) => item.getAsFile()).filter(Boolean);
+      if (images.length) { event.preventDefault(); addImageFiles(images); }
+    });
+    inputBox.addEventListener('dragover', (event) => { event.preventDefault(); inputBox.classList.add('dragging'); });
+    inputBox.addEventListener('dragleave', () => inputBox.classList.remove('dragging'));
+    inputBox.addEventListener('drop', (event) => { event.preventDefault(); inputBox.classList.remove('dragging'); addImageFiles(event.dataTransfer?.files || []); });
+    document.getElementById('contextToggle').addEventListener('click', () => {
+      const panel = document.getElementById('contextPanel');
+      const show = !panel.classList.contains('show');
+      panel.classList.toggle('show', show);
+      document.getElementById('contextToggle').setAttribute('aria-expanded', show ? 'true' : 'false');
+      if (show) loadContextNodes();
+    });
+    document.getElementById('contextAdd').addEventListener('click', addContextNode);
+    document.getElementById('newSessionBtn').addEventListener('click', () => createNewSession().catch((error) => addStatusMessage('⚠️ ' + error.message)));
+    document.getElementById('sidebarToggle').addEventListener('click', () => {
+      const isOpen = !sidebar.classList.contains('collapsed');
+      setSidebarOpen(!isOpen);
+    });
+    traceToggle.addEventListener('click', () => setTraceSidebarOpen(traceSidebar.classList.contains('collapsed')));
+    traceClose.addEventListener('click', () => setTraceSidebarOpen(false));
+    traceSearch.addEventListener('input', () => {
+      traceSearchQuery = traceSearch.value.trim().toLowerCase();
+      renderTraceSidebar();
+    });
+    traceFilters.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-filter]');
+      if (!button) return;
+      traceFilter = button.dataset.filter;
+      traceFilters.querySelectorAll('button[data-filter]').forEach(item => item.classList.toggle('active', item === button));
+      renderTraceSidebar();
+    });
+    sidebarBackdrop.addEventListener('click', closeSidebar);
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 768) setSidebarOpen(true);
+      else if (sidebar.classList.contains('collapsed')) setSidebarOpen(false);
+    });
+    sendBtn.addEventListener('click', submitCurrentInput);
+    inputBox.addEventListener('input', () => { inputBox.style.height = 'auto'; inputBox.style.height = Math.min(inputBox.scrollHeight, 160) + 'px'; updateSendBtn(); });
+    inputBox.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); submitCurrentInput(); } });
+
+    // Esc 只在有任务运行时生效：效果等同点击“终止”按钮；平时按键不做任何事。
+    window.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (!currentSessionId || !busySessions.has(currentSessionId)) return;
+      event.preventDefault();
+      stopCurrentRun();
+    });
+
+    // ============================================================
+    //  初始化
+    // ============================================================
+    (async function init() {
+      applyLayoutPreferences();
+      setTraceSidebarOpen(loadLayoutPreference('futureWorkbench.traceOpen', 'false') === 'true', false);
+      renderTeamBuilder();
+      updateModeUI();
+      loadProviderHealth();
+      if (window.innerWidth <= 768) setSidebarOpen(false);
+      try {
+        const sessions = await loadSessionList();
+        if (sessions && sessions.length > 0) await switchSession(sessions[0].id);
+      } catch (error) {
+        addStatusMessage('⚠️ ' + error.message);
+      }
+    })();
+  </script>
+</body>
+</html>
