@@ -5,7 +5,8 @@ const {
   parseArtifact,
   reviewDecision,
   verificationDecision,
-  renderArtifact
+  renderArtifact,
+  schemaInstruction
 } = require('../src/ai-contract');
 
 function proposal() {
@@ -82,6 +83,13 @@ test('团队发言只接受中性成员编号，不再接受底层实例路由�
     ...turn,
     messages: [{ toAgentId: 'codex-1', type: 'question', content: '旧路由字段' }]
   }), 'member_turn'), /toMemberId/);
+});
+
+test('成员发言示例默认不制造新问题，并允许直接进入汇总', () => {
+  const instruction = schemaInstruction('member_turn');
+  assert.match(instruction, /"messages": \[\]/);
+  assert.match(instruction, /"concerns": \[\]/);
+  assert.match(instruction, /"readyToSynthesize": true/);
 });
 
 test('模型自称批准不等于真正通过确定性审查', () => {

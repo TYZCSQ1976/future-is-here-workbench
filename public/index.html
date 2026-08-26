@@ -246,7 +246,8 @@
     .msg-column .bubble { max-width: 100%; }
     .msg-actions { display: flex; gap: 6px; opacity: 0; transition: opacity 0.15s ease; padding: 4px 2px 0; pointer-events: none; }
     .msg:hover .msg-actions, .msg:focus-within .msg-actions,
-    .collab-msg:hover .msg-actions, .collab-msg:focus-within .msg-actions { opacity: 1; pointer-events: auto; }
+    .collab-msg:hover .msg-actions, .collab-msg:focus-within .msg-actions,
+    .round-answer:hover .msg-actions, .round-answer:focus-within .msg-actions { opacity: 1; pointer-events: auto; }
     .msg-action-btn { border: 1px solid var(--border); background: var(--glass-strong); color: var(--text-2); border-radius: 8px; font-size: 12px; padding: 3px 10px; cursor: pointer; }
     .msg-action-btn:hover { color: var(--text-1); border-color: var(--indigo); }
     .msg .avatar { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
@@ -317,9 +318,58 @@
     .collab-text { background: var(--glass-strong); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px; font-size: 14px; line-height: 1.7; white-space: normal; word-break: break-word; }
     .round-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; color: var(--text-3); font-size: 12px; }
     .round-divider::before, .round-divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--border-hi), transparent); }
-    .goal-card { background: var(--holographic); background-size: 200% 200%; animation: holoShift 6s ease infinite; border-radius: 16px; padding: 16px 20px; margin-bottom: 20px; color: #fff; }
+    .goal-card { position: relative; width: min(680px, 92%); align-self: center; background: var(--holographic); background-size: 200% 200%; animation: holoShift 6s ease infinite; border-radius: 16px; padding: 16px 20px; margin: 4px auto 28px; color: #fff; box-shadow: 0 12px 28px rgba(99,102,241,.16); }
+    .goal-card::after { content: ''; position: absolute; left: 50%; bottom: -28px; width: 1px; height: 28px; background: var(--border-hi); }
+    .goal-card.is-tree-collapsed::after { display: none; }
+    .goal-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .goal-card-label { font-size: 11px; opacity: 0.8; letter-spacing: 2px; text-transform: uppercase; }
+    .goal-tree-toggle { flex: 0 0 auto; min-height: 34px; padding: 5px 10px; border: 1px solid rgba(255,255,255,.42); border-radius: 9px; background: rgba(255,255,255,.14); color: #fff; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .goal-tree-toggle:hover { background: rgba(255,255,255,.24); }
     .goal-card-text { font-size: 16px; font-weight: 600; margin-top: 4px; }
+    .goal-branch-hidden { display: none !important; }
+    .collab-round { position: relative; margin: 0 0 30px; padding: 0 0 28px; animation: msgIn .35s ease; }
+    .round-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 auto 16px; padding: 0 4px; }
+    .round-title-wrap { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
+    .round-title { color: var(--text-1); font-size: 14px; font-weight: 800; }
+    .round-purpose { color: var(--text-3); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .round-collapse-all { min-height: 36px; padding: 6px 11px; border: 1px solid var(--border); border-radius: 9px; background: rgba(255,255,255,.56); color: var(--text-2); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .round-collapse-all:hover { border-color: var(--border-hi); color: var(--indigo); }
+    .round-branches { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; padding-top: 18px; }
+    .round-branches::before { content: ''; position: absolute; top: 0; left: 8%; right: 8%; height: 1px; background: linear-gradient(90deg, transparent, var(--border-hi) 8%, var(--border-hi) 92%, transparent); }
+    .round-answer { position: relative; min-width: 0; border: 1px solid var(--border); border-radius: 15px; background: rgba(255,255,255,.66); box-shadow: 0 7px 22px rgba(55,48,107,.06); overflow: hidden; transition: border-color .2s, box-shadow .2s; }
+    .round-answer::before { content: ''; position: absolute; top: -19px; left: 50%; width: 1px; height: 18px; background: var(--border-hi); }
+    .round-answer:hover { border-color: var(--border-hi); box-shadow: 0 10px 28px rgba(55,48,107,.1); }
+    .round-answer.is-expanded { grid-column: 1 / -1; order: -1; border-color: rgba(99,102,241,.38); box-shadow: 0 16px 36px rgba(55,48,107,.12); }
+    .round-answer-toggle { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 9px; padding: 11px 12px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit; }
+    .round-answer-toggle:hover { background: rgba(99,102,241,.035); }
+    .round-answer .collab-avatar { width: 32px; height: 32px; border-radius: 9px; font-size: 16px; }
+    .round-answer-identity { flex: 1; min-width: 0; }
+    .round-answer-name { display: block; color: var(--text-1); font-size: 12px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .round-answer-role { display: block; margin-top: 2px; color: var(--text-3); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .round-answer-toggle-label { color: var(--indigo); font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .round-answer-target { margin: -2px 13px 7px; color: var(--indigo); font-size: 10px; font-weight: 700; }
+    .round-answer-preview.collab-text { max-height: 112px; margin: 0 7px 9px 0; padding: 0 6px 5px 13px; border: 0; border-radius: 0; background: transparent; backdrop-filter: none; color: var(--text-2); font-size: 12px; line-height: 1.6; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+    .round-answer-preview::-webkit-scrollbar { width: 5px; }
+    .round-answer-preview::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 999px; }
+    .round-answer.is-expanded .round-answer-preview { display: none; }
+    .round-answer-content { display: none; border-top: 1px solid var(--border); background: var(--glass-strong); }
+    .round-answer.is-expanded .round-answer-content { display: block; }
+    .round-answer-context { padding: 10px 16px; background: rgba(99,102,241,.055); color: var(--text-2); font-size: 11px; font-weight: 700; }
+    .round-answer-content .collab-text { max-height: min(64vh, 720px); overflow: auto; border: 0; border-radius: 0; background: transparent; backdrop-filter: none; padding: 16px 18px; }
+    .round-answer-content .msg-actions { padding: 0 16px 12px; }
+    .round-overview { position: relative; width: min(720px, 94%); margin: 28px auto 0; padding: 14px 16px; border: 1px solid rgba(99,102,241,.22); border-radius: 14px; background: rgba(99,102,241,.055); }
+    .round-overview::before { content: ''; position: absolute; left: 50%; top: -29px; width: 1px; height: 28px; background: var(--border-hi); }
+    .round-overview-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--indigo); font-size: 12px; font-weight: 800; }
+    .round-overview-count { color: var(--text-3); font-size: 10px; font-weight: 600; }
+    .round-overview-list { display: grid; gap: 5px; margin: 9px 0 0; padding: 0; list-style: none; }
+    .round-overview-item { display: grid; grid-template-columns: minmax(84px, 130px) 1fr; gap: 8px; color: var(--text-2); font-size: 11px; line-height: 1.45; }
+    .round-overview-item strong { color: var(--text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .round-overview-empty { margin-top: 7px; color: var(--text-3); font-size: 11px; }
+    .collab-round.is-minimized .round-answer-target,
+    .collab-round.is-minimized .round-answer-preview,
+    .collab-round.is-minimized .round-answer-content { display: none; }
+    .collab-round.is-minimized .round-answer { box-shadow: none; }
+    .collab-round.is-minimized .round-overview { margin-top: 20px; }
     .gate-card { background: var(--glass-strong); backdrop-filter: blur(20px); border: 2px solid var(--indigo); border-radius: 16px; padding: 20px; margin: 16px 0; }
     .gate-title { font-size: 16px; font-weight: 700; color: var(--indigo); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
     .gate-plan { background: rgba(99,102,241,0.04); border-radius: 12px; padding: 14px; font-size: 14px; line-height: 1.7; white-space: normal; max-height: 300px; overflow-y: auto; margin-bottom: 16px; }
@@ -494,6 +544,15 @@
       .team-row { grid-template-columns: 1fr 1fr; }
       .context-panel { max-height: 52vh; overflow-y: auto; }
       .context-form { grid-template-columns: 1fr; }
+      .goal-card { width: 100%; }
+      .round-heading { align-items: flex-start; }
+      .round-title-wrap { display: grid; gap: 2px; }
+      .round-branches { grid-template-columns: 1fr; padding-left: 12px; }
+      .round-branches::before { top: 0; bottom: 0; left: 0; right: auto; width: 1px; height: auto; background: var(--border-hi); }
+      .round-answer::before { top: 24px; left: -13px; width: 12px; height: 1px; }
+      .round-answer-content .collab-text { max-height: 58vh; }
+      .round-overview { width: calc(100% - 12px); margin-left: 12px; }
+      .round-overview::before { left: -13px; top: 22px; width: 12px; height: 1px; }
     }
     @media (max-width: 480px) {
       .input-row { flex-direction: column; align-items: stretch; }
@@ -624,7 +683,7 @@
               <option value="majority">多数确认且无人阻断</option>
             </select>
           </label>
-          <label class="team-setting">交叉对话轮数
+          <label class="team-setting">讨论轮数（按设置执行）
             <select id="dialogueRounds">
               <option value="1">1 轮</option>
               <option value="2" selected>2 轮</option>
@@ -1675,6 +1734,7 @@
     }
 
     function addMessage(role, text, agent, attachments = []) {
+      if (role === 'user') resetCollabRoundState();
       const msg = document.createElement('div');
       msg.className = 'msg ' + role;
       if (agent) msg.classList.add(agent);
@@ -1708,11 +1768,185 @@
       const msg = document.createElement('div');
       msg.className = 'msg system';
       msg.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
-      chatArea.appendChild(msg);
+      appendChatNode(msg, { collaborationScoped: true });
       scrollToBottom();
     }
 
-    function addCollabMessage(agent, role, text, instanceName) {
+    let activeCollabRoundNode = null;
+    let activeCollabRoundNumber = null;
+    let activeCollabGoalId = null;
+    let activeCollabGoalNode = null;
+    let collabNodeSequence = 0;
+
+    function compactText(text, maxLength = 180) {
+      const holder = document.createElement('div');
+      holder.innerHTML = renderMarkdown(String(text || ''));
+      const plain = String(holder.textContent || '').replace(/\s+/g, ' ').trim();
+      return plain.length > maxLength ? plain.slice(0, maxLength - 1).trimEnd() + '…' : plain;
+    }
+
+    function resetCollabRoundState() {
+      activeCollabRoundNode = null;
+      activeCollabRoundNumber = null;
+      activeCollabGoalId = null;
+      activeCollabGoalNode = null;
+    }
+
+    function appendChatNode(node, { collaborationScoped = false } = {}) {
+      if (collaborationScoped && activeCollabGoalNode?.classList.contains('is-tree-collapsed')) {
+        node.classList.add('goal-branch-hidden');
+      }
+      chatArea.appendChild(node);
+      return node;
+    }
+
+    function goalBranchNodes(goalCard) {
+      const nodes = [];
+      let current = goalCard.nextElementSibling;
+      while (current && !current.classList.contains('goal-card') && !current.matches('.msg.user')) {
+        nodes.push(current);
+        current = current.nextElementSibling;
+      }
+      return nodes;
+    }
+
+    function setGoalTreeCollapsed(goalCard, collapsed) {
+      const branches = goalBranchNodes(goalCard);
+      goalCard.classList.toggle('is-tree-collapsed', collapsed);
+      branches.forEach(node => node.classList.toggle('goal-branch-hidden', collapsed));
+      const roundCount = branches.filter(node => node.classList.contains('collab-round')).length;
+      const button = goalCard.querySelector('.goal-tree-toggle');
+      button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      button.textContent = collapsed ? `展开整棵树${roundCount ? `（${roundCount}组）` : ''}` : '收起整棵树';
+    }
+
+    function roundResponseLabel(round, role) {
+      const normalizedRole = String(role || '');
+      if (/汇总|方案/.test(normalizedRole)) return '汇总前序讨论，形成下一步母支';
+      if (/确认|核验|验证/.test(normalizedRole)) return '核验主笔方案与团队结论';
+      return Number(round) <= 1 ? '回应用户提出的任务目标' : '回应上一轮分歧与定向问题';
+    }
+
+    function isFinalReviewRole(role) {
+      return /主笔汇总|独立确认/.test(String(role || ''));
+    }
+
+    function roundPurposeText(round, maxRounds, role) {
+      if (isFinalReviewRole(role)) return '讨论已结束：主笔汇总方案，其他成员独立复核';
+      if (Number(maxRounds) > 0) return `按你的设置执行第 ${round} / ${maxRounds} 轮`;
+      return Number(round) === 1 ? '从用户问题分出各成员视角' : '以上一轮概览为母支继续讨论';
+    }
+
+    function updateRoundOverview(roundNode) {
+      if (!roundNode) return;
+      const cards = Array.from(roundNode.querySelectorAll('.round-answer'));
+      const count = roundNode.querySelector('.round-overview-count');
+      const list = roundNode.querySelector('.round-overview-list');
+      const empty = roundNode.querySelector('.round-overview-empty');
+      count.textContent = cards.length ? `已收集 ${cards.length} 位成员` : '等待成员回答';
+      empty.hidden = cards.length > 0;
+      list.innerHTML = '';
+      cards.forEach((card) => {
+        const item = document.createElement('li');
+        item.className = 'round-overview-item';
+        item.innerHTML = `<strong>${escapeHtml(card.dataset.instanceName || '协作成员')}</strong><span>${escapeHtml(card.dataset.summary || '暂未提取到立场摘要')}</span>`;
+        list.appendChild(item);
+      });
+    }
+
+    function setRoundAnswerExpanded(card, expanded) {
+      const roundNode = card.closest('.collab-round');
+      if (expanded && roundNode.classList.contains('is-minimized')) setRoundMinimized(roundNode, false);
+      if (expanded) {
+        roundNode.querySelectorAll('.round-answer.is-expanded').forEach((other) => {
+          if (other !== card) setRoundAnswerExpanded(other, false);
+        });
+      }
+      card.classList.toggle('is-expanded', expanded);
+      const toggle = card.querySelector('.round-answer-toggle');
+      toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      card.querySelector('.round-answer-toggle-label').textContent = expanded ? '退出放大' : '放大阅读';
+    }
+
+    function setRoundMinimized(roundNode, minimized) {
+      if (minimized) {
+        roundNode.querySelectorAll('.round-answer.is-expanded').forEach(card => setRoundAnswerExpanded(card, false));
+      }
+      roundNode.classList.toggle('is-minimized', minimized);
+      const button = roundNode.querySelector('.round-collapse-all');
+      button.textContent = minimized ? '展开摘要' : '全部收起';
+      button.setAttribute('aria-expanded', minimized ? 'false' : 'true');
+    }
+
+    function startCollaborationRound(number, purpose, { finalReview = false } = {}) {
+      const normalizedRound = Math.max(1, Number(number) || 1);
+      if (activeCollabRoundNode?.isConnected && activeCollabRoundNumber === normalizedRound) return activeCollabRoundNode;
+      const section = document.createElement('section');
+      section.className = 'collab-round';
+      section.dataset.round = String(normalizedRound);
+      if (activeCollabGoalId) section.setAttribute('aria-describedby', activeCollabGoalId);
+      section.classList.toggle('is-final-review', finalReview);
+      section.setAttribute('aria-label', finalReview ? '最终汇总与复核' : `第 ${normalizedRound} 轮讨论`);
+      section.innerHTML = `
+        <div class="round-heading">
+          <div class="round-title-wrap">
+            <span class="round-title">${finalReview ? '最终汇总与复核' : `第 ${normalizedRound} 轮讨论`}</span>
+            <span class="round-purpose">${escapeHtml(purpose || (normalizedRound === 1 ? '从用户问题分出各成员视角' : '以上一轮概览为母支继续收敛'))}</span>
+          </div>
+          <button type="button" class="round-collapse-all" aria-expanded="true">全部收起</button>
+        </div>
+        <div class="round-branches"></div>
+        <div class="round-overview" aria-live="polite">
+          <div class="round-overview-title"><span>${finalReview ? '最终方案与复核概览' : '本轮概览 · 下一轮母支'}</span><span class="round-overview-count">等待成员回答</span></div>
+          <ul class="round-overview-list"></ul>
+          <div class="round-overview-empty">成员回答到达后，这里会自动汇总每个人的核心立场。</div>
+        </div>`;
+      section.querySelector('.round-collapse-all').addEventListener('click', () => setRoundMinimized(section, !section.classList.contains('is-minimized')));
+      appendChatNode(section, { collaborationScoped: true });
+      activeCollabRoundNode = section;
+      activeCollabRoundNumber = normalizedRound;
+      scrollToBottom();
+      return section;
+    }
+
+    function addRoundAnswer(agent, role, text, instanceName, details) {
+      const safeAgent = (agent === 'claude' || agent === 'codex' || agent === 'dsh') ? agent : 'claude';
+      const finalReview = details.finalReview ?? isFinalReviewRole(role);
+      const roundNode = startCollaborationRound(details.round, details.purpose || roundPurposeText(details.round, details.maxRounds, role), { finalReview });
+      const contentId = `round-answer-${++collabNodeSequence}`;
+      const summary = compactText(details.artifact?.position || text, 170) || '该成员已提交回答，展开可查看全文。';
+      const card = document.createElement('article');
+      card.className = 'round-answer';
+      card.dataset.instanceName = instanceName || providerDisplayName(safeAgent);
+      card.dataset.summary = summary;
+      card.innerHTML = `
+        <button type="button" class="round-answer-toggle" aria-expanded="false" aria-controls="${contentId}">
+          <span class="collab-avatar ${safeAgent}" aria-hidden="true">${avatarIconFor(safeAgent)}</span>
+          <span class="round-answer-identity">
+            <span class="round-answer-name">${escapeHtml(instanceName || providerDisplayName(safeAgent))}</span>
+            <span class="round-answer-role">${escapeHtml(role || '协作成员')}</span>
+          </span>
+          <span class="round-answer-toggle-label">放大阅读</span>
+        </button>
+        <div class="round-answer-target">↳ ${escapeHtml(roundResponseLabel(details.round, role))}</div>
+        <div class="round-answer-preview collab-text">${renderMarkdown(text)}</div>
+        <div class="round-answer-content" id="${contentId}">
+          <div class="round-answer-context">${escapeHtml(roundResponseLabel(details.round, role))}</div>
+          <div class="collab-text">${renderMarkdown(text)}</div>
+        </div>`;
+      card.querySelector('.round-answer-toggle').addEventListener('click', () => setRoundAnswerExpanded(card, !card.classList.contains('is-expanded')));
+      card.querySelector('.round-answer-content').appendChild(buildMessageActions(text, {
+        getCopyText: () => card.querySelector('.collab-text')?.textContent || ''
+      }));
+      enhanceCodeBlocks(card);
+      roundNode.querySelector('.round-branches').appendChild(card);
+      updateRoundOverview(roundNode);
+      scrollToBottom();
+      return card;
+    }
+
+    function addCollabMessage(agent, role, text, instanceName, details = {}) {
+      if (details.round) return addRoundAnswer(agent, role, text, instanceName, details);
       const safeAgent = (agent === 'claude' || agent === 'codex' || agent === 'dsh') ? agent : 'claude';
       const avatarIcon = avatarIconFor(safeAgent);
       const msg = document.createElement('div');
@@ -1730,13 +1964,25 @@
         getCopyText: () => msg.querySelector('.collab-text')?.textContent || ''
       }));
       enhanceCodeBlocks(msg);
-      chatArea.appendChild(msg);
+      appendChatNode(msg, { collaborationScoped: true });
       scrollToBottom();
       return msg;
     }
 
-    function addRoundDivider(text) { const d = document.createElement('div'); d.className = 'round-divider'; d.textContent = text; chatArea.appendChild(d); scrollToBottom(); }
-    function addGoalCard(text) { const c = document.createElement('div'); c.className = 'goal-card'; c.innerHTML = `<div class="goal-card-label">🎯 任务目标</div><div class="goal-card-text">${escapeHtml(text)}</div>`; chatArea.appendChild(c); scrollToBottom(); }
+    function addRoundDivider(text) { const d = document.createElement('div'); d.className = 'round-divider'; d.textContent = text; appendChatNode(d, { collaborationScoped: true }); scrollToBottom(); }
+    function addGoalCard(text) {
+      activeCollabRoundNode = null;
+      activeCollabRoundNumber = null;
+      activeCollabGoalId = `collab-goal-${++collabNodeSequence}`;
+      const c = document.createElement('div');
+      c.className = 'goal-card';
+      c.id = activeCollabGoalId;
+      c.innerHTML = `<div class="goal-card-head"><div class="goal-card-label">🎯 用户问题 · 本次讨论起点</div><button type="button" class="goal-tree-toggle" aria-expanded="true">收起整棵树</button></div><div class="goal-card-text">${escapeHtml(text)}</div>`;
+      chatArea.appendChild(c);
+      activeCollabGoalNode = c;
+      c.querySelector('.goal-tree-toggle').addEventListener('click', () => setGoalTreeCollapsed(c, !c.classList.contains('is-tree-collapsed')));
+      scrollToBottom();
+    }
 
     function showThinker(agent, role, instanceName) {
       removeThinker();
@@ -1745,7 +1991,7 @@
       const t = document.createElement('div');
       t.className = 'thinker'; t.id = 'thinker';
       t.innerHTML = `<div class="thinker-avatar ${agent}">${icon}</div><div class="thinker-dots"><span></span><span></span><span></span></div><span class="thinker-label">${escapeHtml(name)}（${escapeHtml(role)}）思考中…</span>`;
-      chatArea.appendChild(t);
+      appendChatNode(t, { collaborationScoped: true });
       scrollToBottom();
     }
     function removeThinker() { const t = document.getElementById('thinker'); if (t) t.remove(); }
@@ -1855,7 +2101,7 @@
           <button class="gate-btn cancel" id="gateCancel">❌ 取消</button>
         </div>`;
       enhanceCodeBlocks(c);
-      chatArea.appendChild(c);
+      appendChatNode(c, { collaborationScoped: true });
       scrollToBottom();
       document.getElementById('gateConfirm').addEventListener('click', () => {
         if (!currentWorkspacePath) { addStatusMessage('⚠️ 请先使用 cd /完整/路径 绑定工作目录，再批准实际执行。'); return; }
@@ -1881,7 +2127,7 @@
           ${deliverable ? '<button class="gate-btn confirm" id="deliveryConfirm">✅ 交付到正式工作区</button>' : ''}
           <button class="gate-btn cancel" id="deliveryDiscard">🗑 丢弃隔离产物</button>
         </div>`;
-      chatArea.appendChild(card);
+      appendChatNode(card, { collaborationScoped: true });
       scrollToBottom();
       const identity = { jobId, executionRunId, workspaceHandleId, expectedPatchHash: evidence?.patchHash || null, expectedBaseRevision: baseRevision };
       card.querySelector('#deliveryConfirm')?.addEventListener('click', () => decideDelivery(sessionId, 'deliver', identity));
@@ -1932,7 +2178,7 @@
       }
     }
 
-    function addCompleteCard() { const c = document.createElement('div'); c.className = 'complete-card'; c.innerHTML = `<div class="icon">✅</div><div class="text">任务完成！</div>`; chatArea.appendChild(c); scrollToBottom(); }
+    function addCompleteCard() { const c = document.createElement('div'); c.className = 'complete-card'; c.innerHTML = `<div class="icon">✅</div><div class="text">任务完成！</div>`; appendChatNode(c, { collaborationScoped: true }); scrollToBottom(); }
 
     function showPlanReadyCard(discussionPlan, sourceSessionId) {
       document.getElementById('planReadyCard')?.remove();
@@ -1942,7 +2188,7 @@
       card.innerHTML = `<h3>✅ 已形成可导入方案</h3><div class="gate-plan">${renderMarkdown(discussionPlan.plan)}</div><div class="plan-ready-actions"><button type="button">导入协作并准备实施 →</button></div>`;
       enhanceCodeBlocks(card);
       card.querySelector('button').addEventListener('click', () => importDiscussionPlan(sourceSessionId));
-      chatArea.appendChild(card);
+      appendChatNode(card, { collaborationScoped: true });
       scrollToBottom();
     }
 
@@ -2106,6 +2352,7 @@
 
     function renderSession(session) {
       chatArea.innerHTML = '';
+      resetCollabRoundState();
       // 重新渲染会清空 DOM；该任务旧的流式草稿元素已成游离节点，一并清掉，
       // 避免后续 token 继续追加到页面上看不到的元素上。
       if (session?.id) clearDraftMessages(session.id);
@@ -2121,8 +2368,13 @@
         if (msg.role === 'user') { addMessage('user', msg.text); }
         else if (msg.role === 'ai') {
           if (msg.collabRole) {
-            if (msg.round && msg.round !== lastRound) { lastRound = msg.round; addRoundDivider(`第 ${msg.round} 轮`); }
-            addCollabMessage(msg.agent, msg.collabRole, msg.text, msg.instanceName);
+            const configuredRounds = Number(session.team?.dialogueRounds) || null;
+            const finalReview = isFinalReviewRole(msg.collabRole) && (!configuredRounds || Number(msg.round) > configuredRounds);
+            if (msg.round && msg.round !== lastRound) {
+              lastRound = msg.round;
+              startCollaborationRound(msg.round, roundPurposeText(msg.round, configuredRounds, msg.collabRole), { finalReview });
+            }
+            addCollabMessage(msg.agent, msg.collabRole, msg.text, msg.instanceName, { round: msg.round, artifact: msg.artifact, maxRounds: configuredRounds, finalReview });
           } else if (msg.chatPhase) {
             if (msg.chatPhase === 'cross_check' && lastChatPhase !== 'cross_check') addRoundDivider('互相确认轮');
             lastChatPhase = msg.chatPhase;
@@ -2130,10 +2382,14 @@
           } else { addMessage('ai', msg.text, msg.agent); }
         }
       }
+      if (session.job?.state === 'cancelled') {
+        addStatusMessage('⏹ 本次运行已取消；已经完成的讨论与复核已保留，但系统不会继续生成后续步骤。');
+      }
       if (session.discussionPlan) showPlanReadyCard(session.discussionPlan, session.id);
     }
 
     function showWelcome() {
+      resetCollabRoundState();
       chatArea.innerHTML = `<div class="welcome-screen"><div class="logo">🚀</div><h2>未来已来</h2><p>你的 AI 团队工作台。<br>点击左侧「➕ 新建任务」开始你的第一个项目。<br>Claude Code 和 Codex 在这里等你指挥。</p></div>`;
     }
 
@@ -2615,14 +2871,14 @@
             addStatusMessage(`🧠 应用记忆已加载：${loaded || '暂无历史'}。同一次运行会复用已完成结果；底层临时会话跨轮不保证缓存命中。`);
           }
           break;
-        case 'round': if (viewing) { removeThinker(); addRoundDivider(`第 ${data.number} 轮讨论`); } break;
+        case 'round': if (viewing) { removeThinker(); startCollaborationRound(data.number, roundPurposeText(data.number, data.maxRounds)); } break;
         case 'thinking':
           activeThinkers.set(sessionId, { agent: data.agent, role: data.role, instanceName: data.instanceName });
           if (viewing) { removeThinker(); showThinker(data.agent, data.role, data.instanceName); }
           break;
         case 'message':
           activeThinkers.delete(sessionId);
-          if (viewing) { removeThinker(); addCollabMessage(data.agent, data.role, data.text, data.instanceName); }
+          if (viewing) { removeThinker(); addCollabMessage(data.agent, data.role, data.text, data.instanceName, { round: data.round, artifact: data.artifact, finalReview: isFinalReviewRole(data.role) }); }
           break;
         case 'agent_trace':
           recordTrace(sessionId, data);
@@ -2633,7 +2889,15 @@
           if (viewing) { addStatusMessage('🧠 ' + data.message + '；请在“团队记忆”中批准或拒绝。'); if (document.getElementById('contextPanel').classList.contains('show')) loadContextNodes(); }
           break;
         case 'orchestration_decision':
-          if (viewing) addStatusMessage(data.action === 'continue' ? '↻ 仍有定向问题或分歧，编排器决定继续一轮。' : data.preserveDisagreement ? '🧭 已到讨论上限，编排器会保留分歧后汇总。' : '🧭 成员均已准备好，开始汇总方案。');
+          if (viewing) addStatusMessage(
+            data.reason === 'configured_rounds_remaining'
+              ? `↻ 成员已可以汇总；仍按你设置的 ${data.maxRounds} 轮继续讨论。`
+              : data.action === 'continue'
+                ? '↻ 仍有定向问题或分歧，继续下一轮。'
+                : data.preserveDisagreement
+                  ? '🧭 已到你设置的讨论轮数，保留分歧后开始汇总。'
+                  : '🧭 已完成你设置的讨论轮数，开始汇总方案。'
+          );
           break;
         case 'gate':
           activeThinkers.delete(sessionId);

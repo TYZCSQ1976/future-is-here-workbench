@@ -29,8 +29,62 @@ test('成员定向消息只有目标成员能领取，并在处理后留下确�
     assert.equal(inbox.messages.length, 1);
     assert.equal(inbox.messages[0].fromMemberId, 'member-1');
     assert.equal(ledger.inboxSummary(run.id).pending, 1);
+    assert.equal(ledger.inboxSummary(run.id).blockingPending, 1);
     ledger.acknowledgeInbox(inbox.deliveryIds, { responseRound: 2 });
-    assert.deepEqual(ledger.inboxSummary(run.id), { total: 1, pending: 0, acknowledged: 1, failed: 0 });
+    assert.deepEqual(ledger.inboxSummary(run.id), {
+      total: 1,
+      pending: 0,
+      blockingPending: 0,
+      informationalPending: 0,
+      acknowledged: 1,
+      failed: 0,
+      blockingFailed: 0
+    });
+  } finally {
+    center.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('回答与同意保留为定向消息，但不会被统计成阻塞问题', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'future-collab-ledger-'));
+  const center = createStateCenter(path.join(root, 'state.sqlite3'));
+  try {
+    const { run } = center.createRun({ sessionId: '1234567890', kind: 'collaboration', idempotencyKey: 'collab-info', input: {} });
+    const ledger = createCollaborationLedger(center);
+    ledger.recordTurn({
+      runId: run.id,
+      sessionId: run.sessionId,
+      sender: { id: 'internal-a', provider: 'claude' },
+      senderMemberId: 'member-1',
+      round: 2,
+      artifact: {
+        position: '已经回应完毕', claims: [], concerns: [], readyToSynthesize: true,
+        messages: [
+          { toMemberId: 'member-2', type: 'answer', content: '这是问题的答案', claimId: 'C1' },
+          { toMemberId: 'member-2', type: 'agreement', content: '同意按此汇总', claimId: 'C1' }
+        ]
+      }
+    });
+    assert.deepEqual(ledger.inboxSummary(run.id), {
+      total: 2,
+      pending: 2,
+      blockingPending: 0,
+      informationalPending: 2,
+      acknowledged: 0,
+      failed: 0,
+      blockingFailed: 0
+    });
+    assert.equal(ledger.settleInformational(run.id, { responseRound: 2 }), 2);
+    assert.deepEqual(ledger.inboxSummary(run.id), {
+      total: 2,
+      pending: 0,
+      blockingPending: 0,
+      informationalPending: 0,
+      acknowledged: 2,
+      failed: 0,
+      blockingFailed: 0
+    });
   } finally {
     center.close();
     fs.rmSync(root, { recursive: true, force: true });

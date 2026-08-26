@@ -68,6 +68,28 @@ test('前端内联脚本保持可解析，可靠性闸门默认不可绕过', ()
   assert.match(html, /data-agent="all"[^>]*>.*全选/);
   assert.match(html, /所有已选成员本轮都没有成功返回/);
   assert.doesNotMatch(html, /两位成员本轮都没有成功返回/);
+  // 协作长对话按轮次组织成可扫描的树：默认看摘要，只聚焦展开一个成员全文。
+  assert.match(html, /section\.className = 'collab-round'/);
+  assert.match(html, /class="round-branches"/);
+  assert.match(html, /本轮概览 · 下一轮母支/);
+  assert.match(html, /function setRoundAnswerExpanded/);
+  assert.match(html, /function setRoundMinimized/);
+  assert.match(html, /function setGoalTreeCollapsed/);
+  assert.match(html, /class="goal-tree-toggle"/);
+  assert.match(html, /收起整棵树/);
+  assert.match(html, /goal-branch-hidden/);
+  assert.match(html, /roundNode\.querySelectorAll\('\.round-answer\.is-expanded'\)/);
+  assert.match(html, /round-answer-preview\.collab-text \{[^}]*overflow-y: auto/);
+  assert.match(html, /class="round-answer-preview collab-text">\$\{renderMarkdown\(text\)\}/);
+  assert.match(html, /collab-round\.is-minimized \.round-answer-preview/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.match(html, /回应用户提出的任务目标/);
+  assert.match(html, /回应上一轮分歧与定向问题/);
+  assert.match(html, /讨论轮数（按设置执行）/);
+  assert.match(html, /最终汇总与复核/);
+  assert.match(html, /已经完成的讨论与复核已保留/);
+  assert.match(html, /artifact: msg\.artifact, maxRounds: configuredRounds/);
+  assert.match(html, /artifact: data\.artifact, finalReview: isFinalReviewRole/);
   assert.match(html, /case 'chat_complete':[\s\S]*?updateSendBtn\(\)/);
   assert.match(html, /case 'chat_error':[\s\S]*?updateSendBtn\(\)/);
   // 协作模式的所有终态分支也必须恢复按钮状态，避免卡在“进行中…”。

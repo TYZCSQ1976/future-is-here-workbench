@@ -1,10 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const config = require('../src/config');
 
 const { extractResponseConstraints, buildMemberMemories, runDiscussion, runExecution, suggestTeam } = require('../src/collaboration');
+const { createStateCenter } = require('../src/state-center');
+const { createCollaborationLedger } = require('../src/collaboration-ledger');
 
 function createMemoryStore() {
   const session = { messages: [], workflow: { phase: 'idle', round: 0, checkpoints: [] } };
@@ -168,6 +171,128 @@ test('成员路由元数据无效时不应让整场协作失败', async () => {
   });
   assert.equal(result.planArtifact.artifactType, 'proposal');
   assert.match(store.getSession().messages[0].text, /当前立场/);
+});
+
+test('格式修复事件记录具体校验原因，但不保存失败原文', async () => {
+  const store = createMemoryStore();
+  const events = [];
+  const team = {
+    agents: [
+      { id: 'claude-1', provider: 'claude', name: '探索员', role: '探索', focus: '目标' },
+      { id: 'codex-1', provider: 'codex', name: '核验员', role: '核验', focus: '证据' }
+    ],
+    leadAgentId: 'claude-1', consensusPolicy: 'user_decides', dialogueRounds: 1
+  };
+  const queues = {
+    claude: [
+      JSON.stringify({ ...turn('缺少消息数组', 'member-2', 'question', true), messages: null }),
+      JSON.stringify({ ...turn('修复后的发言', 'member-2', 'answer', true), messages: [] }),
+      JSON.stringify(proposal)
+    ],
+    codex: [
+      JSON.stringify({ ...turn('核验发言', 'member-1', 'agreement', true), messages: [] }),
+      JSON.stringify(review)
+    ]
+  };
+  const providers = {
+    async claude() { return queues.claude.shift(); },
+    async codex() { return queues.codex.shift(); }
+  };
+  await runDiscussion({
+    sessionId: '1234567890', goal: '验证格式修复原因', modeKey: 'cocreation',
+    team, sendEvent: (event) => events.push(event), store, providers
+  });
+  const warning = events.find((event) => event.type === 'warning' && event.code === 'AI_CONTRACT_INVALID');
+  assert.ok(warning);
+  assert.match(warning.reason, /messages必须是数组/);
+  assert.doesNotMatch(JSON.stringify(warning), /缺少消息数组/);
+});
+
+test('有安全只读能力的讨论成员应直接取证，且只在阻塞汇总时发问', async () => {
+  const store = createMemoryStore();
+  const prompts = [];
+  const team = {
+    agents: [
+      { id: 'claude-1', provider: 'claude', name: '探索员', role: '探索', focus: '目标' },
+      { id: 'codex-1', provider: 'codex', name: '核验员', role: '核验', focus: '证据' }
+    ],
+    leadAgentId: 'claude-1', consensusPolicy: 'user_decides', dialogueRounds: 1
+  };
+  const providers = {
+    async claude(prompt) {
+      prompts.push(prompt);
+      return prompt.includes('多轮对话记录')
+        ? JSON.stringify(proposal)
+        : JSON.stringify({ ...turn('已取证', 'member-2', 'answer', true), messages: [] });
+    },
+    async codex(prompt) {
+      prompts.push(prompt);
+      return prompt.includes('候选方案')
+        ? JSON.stringify(review)
+        : JSON.stringify({ ...turn('已核验', 'member-1', 'agreement', true), messages: [] });
+    }
+  };
+  await runDiscussion({
+    sessionId: '1234567890', goal: '检查当前项目', modeKey: 'cocreation', team,
+    sendEvent() {}, store, providers, workspacePath: '/tmp/authorized-workspace'
+  });
+  const turnPrompts = prompts.filter((prompt) => prompt.includes('当前第 1 轮'));
+  assert.equal(turnPrompts.length, 2);
+  for (const prompt of turnPrompts) {
+    assert.match(prompt, /只读检查权限/);
+    assert.match(prompt, /只有存在阻止汇总的关键问题/);
+    assert.doesNotMatch(prompt, /主动提出要向其他成员确认的问题/);
+    assert.doesNotMatch(prompt, /不执行命令、读取或修改本机文件/);
+  }
+});
+
+test('真实收件箱中只有回答与同意时仍执行用户指定轮数，并结清非阻塞投递', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'future-collab-integration-'));
+  const center = createStateCenter(path.join(root, 'state.sqlite3'));
+  try {
+    const store = createMemoryStore();
+    const events = [];
+    const team = {
+      agents: [
+        { id: 'claude-1', provider: 'claude', name: '探索员', role: '探索', focus: '目标' },
+        { id: 'codex-1', provider: 'codex', name: '核验员', role: '核验', focus: '证据' }
+      ],
+      leadAgentId: 'claude-1', consensusPolicy: 'user_decides', dialogueRounds: 3
+    };
+    const { run } = center.createRun({ sessionId: '1234567890', kind: 'collaboration', idempotencyKey: 'nonblocking-rounds', input: {} });
+    const ledger = createCollaborationLedger(center);
+    const queues = {
+      claude: [
+        JSON.stringify(turn('第一轮提问', 'member-2', 'question', false)),
+        JSON.stringify(turn('第二轮回答', 'member-2', 'answer', true)),
+        JSON.stringify({ ...turn('第三轮收束', 'member-2', 'agreement', true), messages: [] }),
+        JSON.stringify(proposal)
+      ],
+      codex: [
+        JSON.stringify(turn('第一轮质疑', 'member-1', 'challenge', false)),
+        JSON.stringify(turn('第二轮同意', 'member-1', 'agreement', true)),
+        JSON.stringify({ ...turn('第三轮收束', 'member-1', 'agreement', true), messages: [] }),
+        JSON.stringify(review)
+      ]
+    };
+    const providers = {
+      async claude() { return queues.claude.shift(); },
+      async codex() { return queues.codex.shift(); }
+    };
+    const result = await runDiscussion({
+      sessionId: run.sessionId, goal: '两轮内完成讨论', modeKey: 'cocreation', team,
+      sendEvent: (event) => events.push(event), store, providers, ledger, runId: run.id
+    });
+    assert.equal(events.filter((event) => event.type === 'round').length, 3);
+    assert.equal(events.find((event) => event.type === 'orchestration_decision')?.reason, 'configured_rounds_remaining');
+    assert.equal(events.filter((event) => event.type === 'orchestration_decision').at(-1)?.reason, 'round_limit');
+    assert.equal(result.reliability.machineConsensusReached, true);
+    assert.equal(ledger.inboxSummary(run.id).pending, 0);
+    assert.equal(ledger.inboxSummary(run.id).acknowledged, 4);
+  } finally {
+    center.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('新一轮协作会带上同一任务此前的对话记录', async () => {

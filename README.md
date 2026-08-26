@@ -199,7 +199,7 @@
 | `src/verification-runner.js` | 生成用户可审阅的检查计划，并在系统沙箱中执行 Node、Python、Rust、Go 检查 | 确定性验证 |
 | `src/backup-manager.js` | 校验、创建和恢复最多两份节省空间的本地快照 | 恢复与容量边界 |
 | `src/collaboration-ledger.js` | 成员定向收件箱、领取和确认 | 协作消息账本 |
-| `src/workflow-machine.js` | 合法状态转换和动态讨论停止条件 | 确定性编排器 |
+| `src/workflow-machine.js` | 合法状态转换和用户指定轮数的确定性执行 | 确定性编排器 |
 | `src/job-reconcile.js` | 启动时核对任务投影与 SQLite 控制面的状态漂移 | 启动对账 |
 | `src/providers.js` | Claude/Codex/dsh CLI 适配器、进程队列与指标 | Provider 适配器 |
 | `test/` | 持久化、恢复、重试、路由、闸门、隔离、前端回归 | Node 内置测试 |

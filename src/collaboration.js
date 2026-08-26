@@ -142,7 +142,18 @@ async function callStructured({ providers, instance, prompt, expectedType, signa
     } catch (error) {
       lastError = error;
       if (attempt >= config.MAX_FORMAT_REPAIRS) break;
-      sendEvent({ type: 'warning', message: `${instance.name} 的结果格式或消息路由不完整，正在进行一次自动修复` });
+      // 只记录校验原因，不保存失败原文；既能定位合同问题，也避免扩大用户资料留存面。
+      const reason = String(error?.message || '结构化结果未通过校验')
+        .replace(/[\u0000-\u001F\u007F]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 300);
+      sendEvent({
+        type: 'warning',
+        code: 'AI_CONTRACT_INVALID',
+        reason,
+        message: `${instance.name} 的结果格式或消息路由不完整（${reason}），正在进行一次自动修复`
+      });
       currentPrompt = repairPrompt(expectedType, result.text, error.message);
     }
   }
@@ -250,7 +261,7 @@ function validateProposalOwners(artifact, team, directory = createParticipantDir
   }
 }
 
-function buildTurnPrompt({ goal, mode, team, directory, instance, round, history, contextBundle, conversationContext = '', memberMemory = [], responseConstraints, inboxMessages = null, attachments = [], folder = null }) {
+function buildTurnPrompt({ goal, mode, team, directory, instance, round, history, contextBundle, conversationContext = '', memberMemory = [], responseConstraints, inboxMessages = null, attachments = [], folder = null, workspacePath = null }) {
   const self = participantFor(directory, instance.id);
   const previous = history.map((item) => {
     const participant = participantFor(directory, item.instance.id);
@@ -269,8 +280,12 @@ function buildTurnPrompt({ goal, mode, team, directory, instance, round, history
     .map((message) => ({ ...message, fromMemberId: item.fromMemberId, fromName: item.fromName, round: item.round })));
   const ownHistory = previous.filter((item) => item.fromMemberId === self.memberId);
   const independence = round === 1
-    ? '这是独立思考轮。你看不到其他成员的答案，请从自己的角色出发形成初始判断，主动提出要向其他成员确认的问题。'
-    : '这是交叉对话轮。必须优先回应收件箱中的 question/challenge；可以同意，也可以带证据反驳。不要为了快速一致而隐藏真实分歧。';
+    ? '这是独立思考轮。你看不到其他成员的答案，请从自己的角色出发形成初始判断。只有存在阻止汇总的关键问题、且另一位成员确实可能回答时，才发送 question/challenge；不要为礼貌互证或泛泛讨论制造消息。'
+    : '这是交叉对话轮。必须优先回应收件箱中的 question/challenge；可以同意，也可以带证据反驳。answer/agreement 不要求对方再次回应。若阻塞问题已经闭环，请将 messages 和 concerns 设为空数组，并将 readyToSynthesize 设为 true。';
+  const canInspectWorkspace = Boolean(workspacePath) && ['claude', 'codex'].includes(instance.provider);
+  const inspectionInstruction = canInspectWorkspace
+    ? `你拥有当前授权工作区 ${workspacePath} 的只读检查权限。涉及项目现状时，应直接读取相关文件取得证据；不得修改文件或执行会改变系统状态的操作。`
+    : '当前成员没有工作台可验证的只读取证能力。证据不足时标记 unknown，并把取证动作列为后续核查项；不要反复要求其他成员执行同一个当前无法完成的动作。';
   return [
     fenced('用户目标', goal),
     responseInstruction(responseConstraints),
@@ -283,12 +298,13 @@ function buildTurnPrompt({ goal, mode, team, directory, instance, round, history
     '团队成员的底层实现和技术来源不属于会议信息。不要推测、询问或讨论它；始终只使用成员姓名、成员编号和岗位称呼彼此。',
     `会议方法：${mode.instruction}`,
     `当前第 ${round} 轮。${independence}`,
+    inspectionInstruction,
     round > 1 ? fenced('此前公开讨论', previous) : '',
     round > 1 ? fenced('发给你的定向消息', inbox) : '',
     round > 1 ? fenced('你自己的历史立场', ownHistory) : '',
     attachments.length ? fenced('用户附加图片', attachments.map((item) => ({ name: item.name, path: item.path, mimeType: item.mimeType }))) : '',
     folder?.promptContext || '',
-    '每个主张必须标注依据类型和证据；不知道就使用 unknown。messages 可以使用 toMemberId 点名向任意其他团队成员提问、回答、质疑或表示有条件同意。只输出 JSON，不执行命令、读取或修改本机文件。',
+    '每个主张必须标注依据类型和证据；不知道就使用 unknown。messages 默认为空数组；只有确需定向沟通时才添加对象，格式为 {"toMemberId":"member-N","type":"question|challenge|answer|agreement","content":"内容","claimId":"可选主张编号"}。只有尚未回应的 question/challenge 会阻塞汇总。只输出 JSON。',
     schemaInstruction('member_turn')
   ].filter(Boolean).join('\n\n');
 }
@@ -435,7 +451,7 @@ async function runDiscussion({ sessionId, goal, modeKey, team: teamInput, sendEv
   });
 
   for (let round = 1; round <= effectiveRounds; round += 1) {
-    sendEvent({ type: 'round', number: round });
+    sendEvent({ type: 'round', number: round, maxRounds: effectiveRounds });
     const frozenHistory = history.slice();
     for (const instance of team.agents) sendEvent({ type: 'thinking', agent: instance.provider, instanceId: instance.id, instanceName: instance.name, role: instance.role });
     let results;
@@ -448,7 +464,7 @@ async function runDiscussion({ sessionId, goal, modeKey, team: teamInput, sendEv
         const result = await callStructured({
           providers,
           instance,
-          prompt: buildTurnPrompt({ goal, mode, team, directory, instance, round, history: frozenHistory, contextBundle, conversationContext, memberMemory: memberMemories[instance.id] || [], responseConstraints, inboxMessages: inbox.messages, attachments, folder }),
+          prompt: buildTurnPrompt({ goal, mode, team, directory, instance, round, history: frozenHistory, contextBundle, conversationContext, memberMemory: memberMemories[instance.id] || [], responseConstraints, inboxMessages: inbox.messages, attachments, folder, workspacePath }),
           expectedType: 'member_turn',
           signal,
           invocation: { attachments, workspacePath: workspacePath || undefined, userText: goal },
@@ -495,8 +511,12 @@ async function runDiscussion({ sessionId, goal, modeKey, team: teamInput, sendEv
         turns: results.map((item) => item.result.artifact),
         inbox: ledger && runId ? ledger.inboxSummary(runId) : { pending: 0, failed: 0 }
       });
-      sendEvent({ type: 'orchestration_decision', round, ...decision });
-      if (decision.action === 'synthesize') break;
+      sendEvent({ type: 'orchestration_decision', round, maxRounds: effectiveRounds, ...decision });
+      if (decision.action === 'synthesize') {
+        // 回答与同意已经进入公开记录，不需要下一位成员再次确认；结清投递，避免重启后留下假待办。
+        if (ledger && runId) ledger.settleInformational(runId, { responseRound: round });
+        break;
+      }
     }
   }
 
@@ -545,13 +565,13 @@ async function runDiscussion({ sessionId, goal, modeKey, team: teamInput, sendEv
 
   let reliability = aggregateReviews(team, reviewResults);
   const inbox = ledger && runId ? ledger.inboxSummary(runId) : { total: 0, pending: 0, acknowledged: 0, failed: 0 };
-  if (inbox.pending > 0 || inbox.failed > 0) {
+  if (inbox.blockingPending > 0 || inbox.blockingFailed > 0) {
     reliability = {
       ...reliability,
       machineConsensusReached: false,
       requiresUserDecision: true,
-      unresolvedMessageCount: inbox.pending,
-      failedMessageCount: inbox.failed
+      unresolvedMessageCount: inbox.blockingPending,
+      failedMessageCount: inbox.blockingFailed
     };
   }
   await checkpoint(store, sessionId, {

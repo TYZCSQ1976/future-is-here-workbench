@@ -1,6 +1,8 @@
 const crypto = require('node:crypto');
 
 function createCollaborationLedger(stateCenter) {
+  const isBlockingMessage = (delivery) => ['question', 'challenge'].includes(delivery?.payload?.type);
+
   function recordTurn({ runId, sessionId, sender, senderMemberId, round, artifact }) {
     const message = stateCenter.recordMessage({
       runId,
@@ -51,17 +53,35 @@ function createCollaborationLedger(stateCenter) {
     for (const id of deliveryIds) stateCenter.acknowledgeDelivery(id, result);
   }
 
+  function settleInformational(runId, result = {}) {
+    let settled = 0;
+    for (const delivery of stateCenter.listDeliveries(runId, 'directed_message')) {
+      if (!['pending', 'interrupted'].includes(delivery.state) || isBlockingMessage(delivery)) continue;
+      const claimed = stateCenter.claimDelivery(delivery.id, `dialogue-settle:${process.pid}:${crypto.randomUUID()}`);
+      if (!claimed) continue;
+      stateCenter.acknowledgeDelivery(delivery.id, { ...result, disposition: 'no_response_required' });
+      settled += 1;
+    }
+    return settled;
+  }
+
   function inboxSummary(runId) {
     const deliveries = stateCenter.listDeliveries(runId, 'directed_message');
+    const pendingDeliveries = deliveries.filter((item) => ['pending', 'interrupted', 'leased'].includes(item.state));
+    const failedDeliveries = deliveries.filter((item) => item.state === 'dead_letter');
+    const blockingPending = pendingDeliveries.filter(isBlockingMessage).length;
     return {
       total: deliveries.length,
-      pending: deliveries.filter((item) => ['pending', 'interrupted', 'leased'].includes(item.state)).length,
+      pending: pendingDeliveries.length,
+      blockingPending,
+      informationalPending: pendingDeliveries.length - blockingPending,
       acknowledged: deliveries.filter((item) => item.state === 'acked').length,
-      failed: deliveries.filter((item) => item.state === 'dead_letter').length
+      failed: failedDeliveries.length,
+      blockingFailed: failedDeliveries.filter(isBlockingMessage).length
     };
   }
 
-  return { recordTurn, claimInbox, acknowledgeInbox, inboxSummary };
+  return { recordTurn, claimInbox, acknowledgeInbox, settleInformational, inboxSummary };
 }
 
 module.exports = { createCollaborationLedger };

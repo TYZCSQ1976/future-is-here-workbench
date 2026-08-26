@@ -24,9 +24,9 @@ const SCHEMA_EXAMPLES = {
     artifactType: 'member_turn',
     position: '当前独立判断和理由',
     claims: [{ id: 'C1', statement: '一个可核验主张', basis: 'inference', evidence: '依据；没有证据时明确写未知' }],
-    messages: [{ toMemberId: 'member-2', type: 'question', content: '发给另一位团队成员的定向问题或回应', claimId: 'C1' }],
-    concerns: ['尚未解决的分歧或风险'],
-    readyToSynthesize: false
+    messages: [],
+    concerns: [],
+    readyToSynthesize: true
   },
   proposal: {
     schemaVersion: SCHEMA_VERSION,
