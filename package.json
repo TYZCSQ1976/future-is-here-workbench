@@ -31,6 +31,6 @@
     "停止.command"
   ],
   "devDependencies": {
-    "@openai/codex-security": "^0.1.8"
+    "@openai/codex-security": "^0.8.1"
   }
 }
